@@ -79,7 +79,9 @@ namespace ConformalDecals {
          UI_FloatRange()]
         public float wear = 100;
 
-        [KSPField(isPersistant = true)] public bool projectMultiple = true;
+        [KSPField(guiName = "#LOC_ConformalDecals_gui-multiproject", guiActive = false, guiActiveEditor = true, isPersistant = true),
+         UI_Toggle()]
+        public bool projectMultiple = true;
 
         [KSPField] public MaterialPropertyCollection materialProperties;
 
@@ -301,7 +303,7 @@ namespace ConformalDecals {
             Destroy(materialProperties);
         }
 
-        protected void OnSizeTweakEvent(BaseField field, object obj) {
+        protected void OnProjectionTweakEvent(BaseField field, object obj) {
             // scale or depth values have been changed, so update scale
             // and update projection matrices if attached
             UpdateProjection();
@@ -521,6 +523,7 @@ namespace ConformalDecals {
             var opacityField = Fields[nameof(opacity)];
             var cutoffField = Fields[nameof(cutoff)];
             var wearField = Fields[nameof(wear)];
+            var multiprojectField = Fields[nameof(projectMultiple)];
 
             scaleField.guiActiveEditor = scaleAdjustable;
             depthField.guiActiveEditor = depthAdjustable;
@@ -538,7 +541,7 @@ namespace ConformalDecals {
                 scaleEditor.minValue = minValue;
                 scaleEditor.maxValue = maxValue;
                 scaleEditor.stepIncrement = (maxValue - minValue) / steps;
-                scaleEditor.onFieldChanged = OnSizeTweakEvent;
+                scaleEditor.onFieldChanged = OnProjectionTweakEvent;
             }
 
             if (depthAdjustable) {
@@ -549,7 +552,7 @@ namespace ConformalDecals {
                 depthEditor.minValue = minValue;
                 depthEditor.maxValue = maxValue;
                 depthEditor.stepIncrement = (maxValue - minValue) / steps;
-                depthEditor.onFieldChanged = OnSizeTweakEvent;
+                depthEditor.onFieldChanged = OnProjectionTweakEvent;
             }
 
             if (opacityAdjustable) {
@@ -586,6 +589,9 @@ namespace ConformalDecals {
                 wearEditor.stepIncrement = (maxValue - minValue) / steps;
                 wearEditor.onFieldChanged = OnMaterialTweakEvent;
             }
+
+            var multiprojectEditor = (UI_Toggle) multiprojectField.uiControlEditor;
+            multiprojectEditor.onFieldChanged = OnProjectionTweakEvent;
         }
 
         public void Render(Camera camera) {
