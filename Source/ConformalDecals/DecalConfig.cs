@@ -91,7 +91,7 @@ namespace ConformalDecals {
                     _shaderBlacklist.Add(shaderName);
                 }
             }
-            
+
             var allFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
             
             foreach (var fontNode in node.GetNodes("FONT")) {

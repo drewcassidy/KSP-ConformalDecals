@@ -1,8 +1,44 @@
+v0.2.6
+------
+- Fixes:
+ - Fixed stock flags appearing stretched by forcing their aspect ratio to be correct.
+ - Another attempted fix for the planet text glitch.
+
+v0.2.5
+------
+- Fixes:
+ - Fixed line spacing, character spacing, and vertical settings not applying to symmetry counterparts
+
+v0.2.4
+------
+- Fixes:
+ - Fixed red text appearing on planets due to KSP bug by clearing render textures afterwards.
+ - Fixed fonts not saving correctly.
+- Changes:
+ - Lowered step size for decal size and depth to 1cm.
+ - Changed default max size to 5m.
+ - Changed default text decal size to 0.2m
+ - Text decals now show as a circle if they contain only whitespace.
+
+v0.2.3
+------
+- Fixes:
+ - Fixed TMP subobjects being deleted, causing fallback fonts to fail in some situations.
+ - Started using URL-style encoding for text decals behind the scenes to prevent issues with certain characters.
+ - Fixed text decals having zero size when they had only whitespace or an empty string.
+ - Fixed decals having drag and causing issues when using FAR.
+ - Fixed broken saving of text decals in certain circumstances.
+ 
+v0.2.2
+------
+- Fixes:
+ - Fixed corrupted text rendering when a vessel loads during a scene change.
+
 v0.2.1
 ------
-- Changes
+- Changes:
  - Pressing enter in the text entry window now types a newline.
-- Fixes
+- Fixes:
  - Renamed font assetbundle. The old extension was causing the game to try to load it twice on Windows due to legacy compatability features.
  - Fixed text rendering on DirectX resulting in black boxes by using ARGB32 instead of RG16 for the render texture in DirectX.
 

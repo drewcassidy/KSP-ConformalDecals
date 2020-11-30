@@ -3,15 +3,13 @@ python:
   - 3.6
 before_install:
   - echo -e "machine github.com\n  login $GITHUB_OAUTH_TOKEN" > ~/.netrc
-  - git lfs pull
-  - git lfs fetch --all
 install:
   - pip install awscli boto3 requests
 branches:
   only:
     - release
 script:
-  - git clone https://github.com/post-kerbin-mining-corporation/build-deploy.git 
+  - git clone https://github.com/post-kerbin-mining-corporation/build-deploy.git
   - cd build-deploy
   - git checkout master
   - cd ..

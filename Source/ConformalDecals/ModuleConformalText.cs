@@ -1,32 +1,34 @@
+using System.Collections;
+using System.Net;
 using ConformalDecals.MaterialProperties;
 using ConformalDecals.Text;
 using ConformalDecals.UI;
 using ConformalDecals.Util;
 using TMPro;
+using UniLinq;
 using UnityEngine;
 
 namespace ConformalDecals {
-    public class ModuleConformalText : ModuleConformalDecal, ISerializationCallbackReceiver {
-        [KSPField(isPersistant = true)] public string text = "Text";
-
+    public class ModuleConformalText : ModuleConformalDecal {
         [KSPField] public Vector2 lineSpacingRange = new Vector2(-50, 50);
         [KSPField] public Vector2 charSpacingRange = new Vector2(-50, 50);
 
-        // serialization-only fields. do not use except in serialization functions
-        [KSPField(isPersistant = true)] public string fontName = "Calibri SDF";
-        [KSPField(isPersistant = true)] public int    style;
-        [KSPField(isPersistant = true)] public bool   vertical;
-        [KSPField(isPersistant = true)] public float  lineSpacing;
-        [KSPField(isPersistant = true)] public float  charSpacing;
-        [KSPField(isPersistant = true)] public string fillColor    = "000000FF";
-        [KSPField(isPersistant = true)] public string outlineColor = "FFFFFFFF";
+        [KSPField(isPersistant = true)] public bool  vertical;
+        [KSPField(isPersistant = true)] public float lineSpacing;
+        [KSPField(isPersistant = true)] public float charSpacing;
+
+        [KSPField] public string     text;
+        [KSPField] public DecalFont  font;
+        [KSPField] public FontStyles style;
+        [KSPField] public Color32    fillColor    = Color.black;
+        [KSPField] public Color32    outlineColor = Color.white;
 
         // KSP TWEAKABLES
 
         [KSPEvent(guiName = "#LOC_ConformalDecals_gui-set-text", guiActive = false, guiActiveEditor = true)]
         public void SetText() {
             if (_textEntryController == null) {
-                _textEntryController = TextEntryController.Create(text, _font, _style, lineSpacingRange, charSpacingRange, OnTextUpdate);
+                _textEntryController = TextEntryController.Create(text, font, style, vertical, lineSpacing, charSpacing, lineSpacingRange, charSpacingRange, OnTextUpdate);
             }
             else {
                 _textEntryController.Close();
@@ -44,7 +46,7 @@ namespace ConformalDecals {
             guiActive = false, guiActiveEditor = true)]
         public void SetFillColor() {
             if (_fillColorPickerController == null) {
-                _fillColorPickerController = ColorPickerController.Create(_fillColor, OnFillColorUpdate);
+                _fillColorPickerController = ColorPickerController.Create(fillColor, OnFillColorUpdate);
             }
             else {
                 _fillColorPickerController.Close();
@@ -67,17 +69,13 @@ namespace ConformalDecals {
             guiActive = false, guiActiveEditor = true)]
         public void SetOutlineColor() {
             if (_outlineColorPickerController == null) {
-                _outlineColorPickerController = ColorPickerController.Create(_outlineColor, OnOutlineColorUpdate);
+                _outlineColorPickerController = ColorPickerController.Create(outlineColor, OnOutlineColorUpdate);
             }
             else {
                 _outlineColorPickerController.Close();
             }
         }
 
-        private DecalTextStyle _style;
-        private DecalFont      _font;
-        private Color32        _fillColor;
-        private Color32        _outlineColor;
 
         private TextEntryController   _textEntryController;
         private ColorPickerController _fillColorPickerController;
@@ -92,35 +90,56 @@ namespace ConformalDecals {
         private MaterialColorProperty   _outlineColorProperty;
         private MaterialFloatProperty   _outlineWidthProperty;
 
-        private TextRenderJob _currentJob;
         private DecalText     _currentText;
 
         public override void OnLoad(ConfigNode node) {
             base.OnLoad(node);
-            OnAfterDeserialize();
+
+            string textRaw = "";
+            if (ParseUtil.ParseStringIndirect(ref textRaw, node, "text")) {
+                text = WebUtility.UrlDecode(textRaw);
+            }
+
+            string fontName = "";
+            if (ParseUtil.ParseStringIndirect(ref fontName, node, "fontName")) {
+                font = DecalConfig.GetFont(fontName);
+            }
+            else if (font == null) font = DecalConfig.GetFont("Calibri SDF");
+
+            int styleInt = 0;
+            if (ParseUtil.ParseIntIndirect(ref styleInt, node, "style")) {
+                style = (FontStyles) styleInt;
+            }
+
+            ParseUtil.ParseColor32Indirect(ref fillColor, node, "fillColor");
+            ParseUtil.ParseColor32Indirect(ref outlineColor, node, "outlineColor");
+
+            if (HighLogic.LoadedSceneIsGame) {
+                // For some reason, rendering doesnt work right on the first frame a scene is loaded
+                // So delay any rendering until the next frame when called in OnLoad
+                // This is probably a problem with Unity, not KSP
+                StartCoroutine(UpdateTextLate());
+            }
+            else {
+                UpdateTextures();
+                UpdateMaterials();
+                UpdateScale();
+                UpdateTargets();
+            }
         }
 
         public override void OnSave(ConfigNode node) {
-            OnBeforeSerialize();
+            node.AddValue("text", WebUtility.UrlEncode(text));
+            node.AddValue("fontName", font.Name);
+            node.AddValue("style", (int) style);
+            node.AddValue("fillColor", fillColor.ToHexString());
+            node.AddValue("outlineColor", outlineColor.ToHexString());
             base.OnSave(node);
         }
 
         public override void OnAwake() {
             base.OnAwake();
 
-            _font = DecalConfig.GetFont(fontName);
-            _style = new DecalTextStyle((FontStyles) style, vertical, lineSpacing, charSpacing);
-            
-            if (!ParseUtil.TryParseColor32(fillColor, out _fillColor)) {
-                Logging.LogWarning($"Improperly formatted color value for fill: '{fillColor}'");
-                _fillColor = Color.magenta;
-            }
-
-            if (!ParseUtil.TryParseColor32(outlineColor, out _outlineColor)) {
-                Logging.LogWarning($"Improperly formatted color value for outline: '{outlineColor}'");
-                _outlineColor = Color.magenta;
-            }
-            
             _decalTextureProperty = materialProperties.AddOrGetTextureProperty("_Decal", true);
 
             _fillEnabledProperty = materialProperties.AddOrGetProperty<MaterialKeywordProperty>("DECAL_FILL");
@@ -131,46 +150,44 @@ namespace ConformalDecals {
             _outlineWidthProperty = materialProperties.AddOrGetProperty<MaterialFloatProperty>("_OutlineWidth");
         }
 
-        public void OnTextUpdate(string newText, DecalFont newFont, DecalTextStyle newStyle) {
+        public void OnTextUpdate(string newText, DecalFont newFont, FontStyles newStyle, bool newVertical, float newLineSpacing, float newCharSpacing) {
             text = newText;
-            _font = newFont;
-            _style = newStyle;
-            UpdateTextures();
-            UpdateScale();
-            UpdateTargets();
+            font = newFont;
+            style = newStyle;
+            vertical = newVertical;
+            lineSpacing = newLineSpacing;
+            charSpacing = newCharSpacing;
+            UpdateText();
 
-            foreach (var counterpart in part.symmetryCounterparts) {
-                var decal = counterpart.GetComponent<ModuleConformalText>();
-                decal.text = text;
-                decal._font = _font;
-                decal._style = _style;
-
-                decal._currentJob = _currentJob;
-                decal._currentText = _currentText;
-                decal.UpdateTextures();
-                decal.UpdateScale();
-                decal.UpdateTargets();
+            foreach (var decal in part.symmetryCounterparts.Select(o => o.GetComponent<ModuleConformalText>())) {
+                decal.text = newText;
+                decal.font = newFont;
+                decal.style = newStyle;
+                decal.vertical = newVertical;
+                decal.lineSpacing = newLineSpacing;
+                decal.charSpacing = newCharSpacing;
+                decal.UpdateText();
             }
         }
 
         public void OnFillColorUpdate(Color rgb, Util.ColorHSV hsv) {
-            _fillColor = rgb;
+            fillColor = rgb;
             UpdateMaterials();
 
             foreach (var counterpart in part.symmetryCounterparts) {
                 var decal = counterpart.GetComponent<ModuleConformalText>();
-                decal._fillColor = _fillColor;
+                decal.fillColor = fillColor;
                 decal.UpdateMaterials();
             }
         }
 
         public void OnOutlineColorUpdate(Color rgb, Util.ColorHSV hsv) {
-            _outlineColor = rgb;
+            outlineColor = rgb;
             UpdateMaterials();
 
             foreach (var counterpart in part.symmetryCounterparts) {
                 var decal = counterpart.GetComponent<ModuleConformalText>();
-                decal._outlineColor = _outlineColor;
+                decal.outlineColor = outlineColor;
                 decal.UpdateMaterials();
             }
         }
@@ -217,20 +234,13 @@ namespace ConformalDecals {
             }
         }
 
-        public void OnBeforeSerialize() {
-            fontName = _font.Name;
-            style = (int) _style.FontStyle;
-            vertical = _style.Vertical;
-            lineSpacing = _style.LineSpacing;
-            charSpacing = _style.CharSpacing;
-            fillColor = _fillColor.ToHexString();
-            outlineColor = _outlineColor.ToHexString();
-        }
-
-        public void OnAfterDeserialize() {}
-
         public override void OnDestroy() {
             if (HighLogic.LoadedSceneIsGame && _currentText != null) TextRenderer.UnregisterText(_currentText);
+
+            // close all UIs
+            if (_textEntryController != null) _textEntryController.Close();
+            if (_fillColorPickerController != null) _fillColorPickerController.Close();
+            if (_outlineColorPickerController != null) _outlineColorPickerController.Close();
 
             base.OnDestroy();
         }
@@ -244,24 +254,34 @@ namespace ConformalDecals {
             base.OnDetach();
         }
 
+        protected void UpdateText() {
+            UpdateTextures();
+            UpdateMaterials();
+            UpdateScale();
+            UpdateTargets();
+        }
+        
+        private IEnumerator UpdateTextLate() {
+            yield return null;
+            UpdateText();
+        }
+        
         protected override void UpdateTextures() {
             // Render text
-            var newText = new DecalText(text, _font, _style);
+            var newText = new DecalText(text, font, style, vertical, lineSpacing, charSpacing);
             var output = TextRenderer.UpdateTextNow(_currentText, newText);
             _currentText = newText;
 
             _decalTextureProperty.Texture = output.Texture;
             _decalTextureProperty.SetTile(output.Window);
-
-            UpdateMaterials();
         }
 
         protected override void UpdateMaterials() {
             _fillEnabledProperty.value = fillEnabled;
-            _fillColorProperty.color = _fillColor;
+            _fillColorProperty.color = fillColor;
 
             _outlineEnabledProperty.value = outlineEnabled;
-            _outlineColorProperty.color = _outlineColor;
+            _outlineColorProperty.color = outlineColor;
             _outlineWidthProperty.value = outlineWidth;
 
             base.UpdateMaterials();

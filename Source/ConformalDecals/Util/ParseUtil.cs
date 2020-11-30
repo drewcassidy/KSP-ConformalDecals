@@ -31,9 +31,15 @@ namespace ConformalDecals.Util {
         }
 
         public static string ParseString(ConfigNode node, string valueName, bool isOptional = false, string defaultValue = "") {
-            if (!node.HasValue(valueName)) throw new FormatException($"Missing value for {valueName}");
+            if (node.HasValue(valueName)) return node.GetValue(valueName);
+            
+            if (isOptional) {
+                return defaultValue;
+            }
+            else {
+                throw new FormatException($"Missing value for {valueName}");
+            }
 
-            return node.GetValue(valueName);
         }
 
         public static bool ParseStringIndirect(ref string value, ConfigNode node, string valueName) {

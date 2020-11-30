@@ -89,9 +89,11 @@ namespace ConformalDecals.Text {
             if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11 || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D12) {
                 textRenderTextureFormat = RenderTextureFormat.ARGB32; // DirectX is dumb
             }
+
             if (!SystemInfo.SupportsTextureFormat(textTextureFormat)) {
                 Logging.LogError($"Text texture format {textTextureFormat} not supported on this platform.");
             }
+
             if (!SystemInfo.SupportsRenderTextureFormat(textRenderTextureFormat)) {
                 Logging.LogError($"Text texture format {textRenderTextureFormat} not supported on this platform.");
             }
@@ -161,9 +163,9 @@ namespace ConformalDecals.Text {
             // SETUP TMP OBJECT FOR RENDERING
             _tmp.text = text.FormattedText;
             _tmp.font = text.Font.FontAsset;
-            _tmp.fontStyle = text.Style.FontStyle | text.Font.FontStyle;
-            _tmp.lineSpacing = text.Style.LineSpacing;
-            _tmp.characterSpacing = text.Style.CharSpacing;
+            _tmp.fontStyle = text.Style | text.Font.FontStyle;
+            _tmp.lineSpacing = text.LineSpacing;
+            _tmp.characterSpacing = text.CharSpacing;
 
             _tmp.extraPadding = true;
             _tmp.enableKerning = true;
@@ -205,6 +207,9 @@ namespace ConformalDecals.Text {
 
             // CALCULATE SIZES
             var size = bounds.size * PixelDensity;
+            size.x = Mathf.Max(size.x, 0.1f);
+            size.y = Mathf.Max(size.y, 0.1f);
+            
             var textureSize = new Vector2Int {
                 x = Mathf.NextPowerOfTwo((int) size.x),
                 y = Mathf.NextPowerOfTwo((int) size.y)
@@ -250,13 +255,13 @@ namespace ConformalDecals.Text {
                 bounds.center.y - halfSize.y, bounds.center.y + halfSize.y, -1, 1);
 
             // GET RENDERTEX
-            var renderTex = RenderTexture.GetTemporary(textureSize.x, textureSize.y, 0, textRenderTextureFormat, RenderTextureReadWrite.Linear, 1);
-            renderTex.autoGenerateMips = false;
+            var renderTex = new RenderTexture(textureSize.x, textureSize.y, 0, textRenderTextureFormat, RenderTextureReadWrite.Linear) {autoGenerateMips = false};
 
             // RENDER
             Graphics.SetRenderTarget(renderTex);
             GL.PushMatrix();
             GL.LoadProjectionMatrix(matrix);
+            GL.LoadIdentity();
             GL.Clear(false, true, Color.black);
 
             for (var i = 0; i < meshes.Length; i++) {
@@ -266,19 +271,25 @@ namespace ConformalDecals.Text {
                 }
             }
 
-            GL.PopMatrix();
-
             // COPY TEXTURE BACK INTO RAM
+            var prevRT = RenderTexture.active;
             RenderTexture.active = renderTex;
             texture.ReadPixels(new Rect(0, 0, textureSize.x, textureSize.y), 0, 0, true);
             texture.Apply();
+            RenderTexture.active = prevRT;
 
+            GL.PopMatrix();
+            
             // RELEASE RENDERTEX
-            RenderTexture.ReleaseTemporary(renderTex);
+            renderTex.Release();
+            RenderTexture.Destroy(renderTex);
 
             // CLEAR SUBMESHES
+            _tmp.text = "";
+
             for (int i = 0; i < transform.childCount; i++) {
-                Destroy(transform.GetChild(i).gameObject);
+                var child = transform.GetChild(i);
+                Destroy(child.gameObject);
             }
 
             return new TextRenderOutput(texture, window);

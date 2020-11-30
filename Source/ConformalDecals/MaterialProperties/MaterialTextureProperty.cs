@@ -41,7 +41,13 @@ namespace ConformalDecals.MaterialProperties {
         public Vector2 Dimensions => new Vector2(_texture.width, _texture.height);
         public Vector2 MaskedDimensions => _hasTile ? _tileRect.size : Dimensions;
 
-        public float AspectRatio => MaskedHeight / (float) MaskedWidth;
+        public float AspectRatio {
+            get {
+                if (_texture == null) return 1;
+                if (_textureUrl?.Contains("Squad/Flags") == true) return 0.625f;
+                return MaskedHeight / (float) MaskedWidth;
+            }
+        }
 
         public override void ParseNode(ConfigNode node) {
             base.ParseNode(node);

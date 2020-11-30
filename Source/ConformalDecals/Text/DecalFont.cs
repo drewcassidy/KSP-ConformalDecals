@@ -3,41 +3,47 @@ using System.Collections.Generic;
 using ConformalDecals.Util;
 using TMPro;
 using UniLinq;
+using UnityEngine;
 
 namespace ConformalDecals.Text {
-    public class DecalFont : IEquatable<DecalFont> {
+    public class DecalFont : ScriptableObject, ISerializationCallbackReceiver, IEquatable<DecalFont> {
+        [SerializeField] private string        _title;
+        [SerializeField] private TMP_FontAsset _fontAsset;
+        [SerializeField] private FontStyles    _fontStyle;
+        [SerializeField] private FontStyles    _fontStyleMask;
+
         /// Human-readable name for the font
-        public string Title { get; }
+        public string Title => _title;
 
         /// Internal name for the font
-        public string Name => FontAsset.name;
+        public string Name => _fontAsset.name;
 
         /// The font asset itself
-        public TMP_FontAsset FontAsset { get; }
+        public TMP_FontAsset FontAsset => _fontAsset;
 
         /// Styles that are forced on for this font,
         /// e.g. smallcaps for a font without lower case characters
-        public FontStyles FontStyle { get; }
+        public FontStyles FontStyle => _fontStyle;
 
-        public bool Bold => (FontStyle & FontStyles.Bold) != 0;
+        public bool Bold => (_fontStyle & FontStyles.Bold) != 0;
 
-        public bool Italic => (FontStyle & FontStyles.Italic) != 0;
+        public bool Italic => (_fontStyle & FontStyles.Italic) != 0;
 
-        public bool Underline => (FontStyle & FontStyles.Underline) != 0;
+        public bool Underline => (_fontStyle & FontStyles.Underline) != 0;
 
-        public bool SmallCaps => (FontStyle & FontStyles.SmallCaps) != 0;
+        public bool SmallCaps => (_fontStyle & FontStyles.SmallCaps) != 0;
 
         /// Styles that are forced off for this font,
         /// e.g. underline for a font with no underscore character
-        public FontStyles FontStyleMask { get; }
+        public FontStyles FontStyleMask => _fontStyleMask;
 
-        public bool BoldMask => (FontStyleMask & FontStyles.Bold) != 0;
+        public bool BoldMask => (_fontStyleMask & FontStyles.Bold) != 0;
 
-        public bool ItalicMask => (FontStyleMask & FontStyles.Italic) != 0;
+        public bool ItalicMask => (_fontStyleMask & FontStyles.Italic) != 0;
 
-        public bool UnderlineMask => (FontStyleMask & FontStyles.Underline) != 0;
+        public bool UnderlineMask => (_fontStyleMask & FontStyles.Underline) != 0;
 
-        public bool SmallCapsMask => (FontStyleMask & FontStyles.SmallCaps) != 0;
+        public bool SmallCapsMask => (_fontStyleMask & FontStyles.SmallCaps) != 0;
 
 
         public DecalFont(ConfigNode node, IEnumerable<TMP_FontAsset> fontAssets) {
@@ -45,14 +51,14 @@ namespace ConformalDecals.Text {
             if (fontAssets == null) throw new ArgumentNullException(nameof(fontAssets));
 
             var name = ParseUtil.ParseString(node, "name");
-            FontAsset = fontAssets.First(o => o.name == name);
+            _fontAsset = fontAssets.First(o => o.name == name);
             if (FontAsset == null) {
                 throw new FormatException($"Could not find font asset named {name}");
             }
 
-            Title = ParseUtil.ParseString(node, "title", true, name);
-            FontStyle = (FontStyles) ParseUtil.ParseInt(node, "style", true);
-            FontStyleMask = (FontStyles) ParseUtil.ParseInt(node, "styleMask", true);
+            _title = ParseUtil.ParseString(node, "title", true, name);
+            _fontStyle = (FontStyles) ParseUtil.ParseInt(node, "style", true);
+            _fontStyleMask = (FontStyles) ParseUtil.ParseInt(node, "styleMask", true);
         }
 
 
@@ -95,5 +101,9 @@ namespace ConformalDecals.Text {
         public static bool operator !=(DecalFont left, DecalFont right) {
             return !Equals(left, right);
         }
+
+        public void OnBeforeSerialize() { }
+
+        public void OnAfterDeserialize() { }
     }
 }

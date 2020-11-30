@@ -1,4 +1,4 @@
-# Conformal Decals v0.2.1
+# Conformal Decals v0.2.6
 [![Build Status](https://travis-ci.org/drewcassidy/KSP-Conformal-Decals.svg?branch=release)](https://travis-ci.org/drewcassidy/KSP-Conformal-Decals) [![Art: CC BY-SA 4.0](https://img.shields.io/badge/Art%20License-CC%20BY--SA%204.0-orange.svg)](https://creativecommons.org/licenses/by-sa/4.0/) [![Code: GPL v3](https://img.shields.io/badge/Code%20License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) 
 
 ![Screenshot](http://pileof.rocks/KSP/images/ConformalDecalsHeader.png)

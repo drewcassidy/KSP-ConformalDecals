@@ -50,3 +50,4 @@ Source/ConformalDecals/bin
 *.sublime*
 .idea
 obj
+*.swp
