@@ -27,12 +27,6 @@ namespace ConformalDecals {
             }
         }
 
-        protected override void SetupDecal() {
-            _flagTextureProperty = materialProperties.AddOrGetTextureProperty("_Decal");
-
-            base.SetupDecal();
-        }
-
         public override void OnStart(StartState state) {
             base.OnStart(state);
 
@@ -89,6 +83,8 @@ namespace ConformalDecals {
         }
 
         protected override void UpdateTextures() {
+            _flagTextureProperty ??= materialProperties.AddOrGetTextureProperty("_Decal");
+
             base.UpdateTextures();
             if (useCustomFlag) {
                 _flagTextureProperty.TextureUrl = flagUrl;
