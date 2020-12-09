@@ -49,5 +49,7 @@ Source/ConformalDecals/bin
 .ds_store
 *.sublime*
 .idea
+.vs
 obj
 *.swp
+Source/.editorconfig

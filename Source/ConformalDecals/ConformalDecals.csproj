@@ -35,19 +35,22 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Remove="dlls\**"/>
+        <Compile Remove="dlls\**" />
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Remove="dlls\**"/>
+        <EmbeddedResource Remove="dlls\**" />
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="dlls\**"/>
+        <None Remove="dlls\**" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Include="..\.editorconfig" />
+    </ItemGroup>
     <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-        <Exec Command="/bin/cp -v '$(OutDir)ConformalDecals.dll' '$(SolutionDir)../GameData/ConformalDecals/Plugins'"/>
+        <Exec Command="/bin/cp -v '$(OutDir)ConformalDecals.dll' '$(SolutionDir)../GameData/ConformalDecals/Plugins'" />
     </Target>
 
 </Project>

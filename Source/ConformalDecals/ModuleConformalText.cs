@@ -123,7 +123,7 @@ namespace ConformalDecals {
             vertical = newVertical;
             lineSpacing = newLineSpacing;
             charSpacing = newCharSpacing;
-            UpdateText();
+            UpdateAll();
 
             foreach (var decal in part.symmetryCounterparts.Select(o => o.GetComponent<ModuleConformalText>())) {
                 decal.text = newText;
@@ -132,7 +132,7 @@ namespace ConformalDecals {
                 decal.vertical = newVertical;
                 decal.lineSpacing = newLineSpacing;
                 decal.charSpacing = newCharSpacing;
-                decal.UpdateText();
+                decal.UpdateAll();
             }
         }
 
@@ -271,16 +271,9 @@ namespace ConformalDecals {
             }
         }
 
-        protected void UpdateText() {
-            UpdateTextures();
-            UpdateMaterials();
-            UpdateScale();
-            UpdateTargets();
-        }
-
         private IEnumerator UpdateTextLate() {
             yield return null;
-            UpdateText();
+            UpdateAll();
         }
 
         protected override void UpdateTextures() {
