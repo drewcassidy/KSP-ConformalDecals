@@ -279,7 +279,7 @@ namespace ConformalDecals {
         protected override void UpdateTextures() {
             // Render text
             var newText = new DecalText(text, font, style, vertical, lineSpacing, charSpacing);
-            var output = TextRenderer.UpdateTextNow(_currentText, newText);
+            var output = TextRenderer.UpdateText(_currentText, newText);
             _currentText = newText;
 
             _decalTextureProperty.Texture = output.Texture;

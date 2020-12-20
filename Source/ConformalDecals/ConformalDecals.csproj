@@ -5,6 +5,7 @@
         <IsPackable>false</IsPackable>
         <PlatformTarget>x64</PlatformTarget>
         <NoWarn>1701;1702;CS0649;CS1591</NoWarn>
+        <AssemblyVersion>0.2.7</AssemblyVersion>
     </PropertyGroup>
 
     <ItemGroup>

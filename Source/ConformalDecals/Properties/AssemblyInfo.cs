@@ -1,1 +1,1 @@
-﻿[assembly: KSPAssembly("ConformalDecals", 0, 2, 6)]
+﻿[assembly: KSPAssembly("ConformalDecals", 0, 2)]

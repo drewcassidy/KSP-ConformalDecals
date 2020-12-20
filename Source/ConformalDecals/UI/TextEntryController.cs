@@ -3,7 +3,6 @@ using ConformalDecals.Text;
 using ConformalDecals.Util;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace ConformalDecals.UI {
@@ -35,14 +34,15 @@ namespace ConformalDecals.UI {
         private Vector2            _lineSpacingRange;
         private Vector2            _charSpacingRange;
         private TMP_InputField     _textBoxTMP;
+        private FontMenuController _fontMenu;
         private TextUpdateDelegate _onValueChanged;
 
-        private FontMenuController _fontMenu;
+        private static int _lockCounter;
 
-        private bool   _ignoreUpdates;
         private bool   _isLocked;
         private string _lockString;
-        private static int _lockCounter;
+        private bool   _ignoreUpdates;
+        private bool   _textUpdated;
 
         public static TextEntryController Create(
             string text, DecalFont font, FontStyles style, bool vertical, float linespacing, float charspacing,
@@ -74,7 +74,7 @@ namespace ConformalDecals.UI {
 
         public void SetControlLock(string value = null) {
             if (_isLocked) return;
-            InputLockManager.SetControlLock(_lockString);
+            InputLockManager.SetControlLock(ControlTypes.EDITOR_UI, _lockString);
             _isLocked = true;
         }
 
@@ -86,8 +86,7 @@ namespace ConformalDecals.UI {
 
         public void OnTextUpdate(string newText) {
             this._text = newText;
-
-            OnValueChanged();
+            _textUpdated = true;
         }
 
         public void OnFontMenu() {
@@ -105,7 +104,7 @@ namespace ConformalDecals.UI {
             _textBoxTMP.fontAsset = _font.FontAsset;
 
             UpdateStyleButtons();
-            OnValueChanged();
+            _textUpdated = true;
         }
 
         public void OnLineSpacingUpdate(float value) {
@@ -114,7 +113,7 @@ namespace ConformalDecals.UI {
             _lineSpacing = Mathf.Lerp(_lineSpacingRange.x, _lineSpacingRange.y, value);
 
             UpdateLineSpacing();
-            OnValueChanged();
+            _textUpdated = true;
         }
 
         public void OnLineSpacingUpdate(string text) {
@@ -128,7 +127,7 @@ namespace ConformalDecals.UI {
             }
 
             UpdateLineSpacing();
-            OnValueChanged();
+            _textUpdated = true;
         }
 
         public void OnCharSpacingUpdate(float value) {
@@ -137,7 +136,7 @@ namespace ConformalDecals.UI {
             _charSpacing = Mathf.Lerp(_charSpacingRange.x, _charSpacingRange.y, value);
 
             UpdateCharSpacing();
-            OnValueChanged();
+            _textUpdated = true;
         }
 
         public void OnCharSpacingUpdate(string text) {
@@ -151,7 +150,7 @@ namespace ConformalDecals.UI {
             }
 
             UpdateCharSpacing();
-            OnValueChanged();
+            _textUpdated = true;
         }
 
         public void OnBoldUpdate(bool state) {
@@ -163,7 +162,7 @@ namespace ConformalDecals.UI {
                 _style &= ~FontStyles.Bold;
 
             _textBoxTMP.textComponent.fontStyle = _style | _font.FontStyle & ~_font.FontStyleMask;
-            OnValueChanged();
+            _textUpdated = true;
         }
 
         public void OnItalicUpdate(bool state) {
@@ -175,7 +174,7 @@ namespace ConformalDecals.UI {
                 _style &= ~FontStyles.Italic;
 
             _textBoxTMP.textComponent.fontStyle = _style | _font.FontStyle & ~_font.FontStyleMask;
-            OnValueChanged();
+            _textUpdated = true;
         }
 
         public void OnUnderlineUpdate(bool state) {
@@ -187,7 +186,7 @@ namespace ConformalDecals.UI {
                 _style &= ~FontStyles.Underline;
 
             _textBoxTMP.textComponent.fontStyle = _style | _font.FontStyle & ~_font.FontStyleMask;
-            OnValueChanged();
+            _textUpdated = true;
         }
 
         public void OnSmallCapsUpdate(bool state) {
@@ -199,19 +198,19 @@ namespace ConformalDecals.UI {
                 _style &= ~FontStyles.SmallCaps;
 
             _textBoxTMP.textComponent.fontStyle = _style | _font.FontStyle & ~_font.FontStyleMask;
-            OnValueChanged();
+            _textUpdated = true;
         }
 
         public void OnVerticalUpdate(bool state) {
             if (_ignoreUpdates) return;
 
             _vertical = state;
-            OnValueChanged();
+            _textUpdated = true;
         }
 
         private void Start() {
             _lockString = $"ConformalDecals_TextEditor_{_lockCounter++}";
-                
+
             _textBoxTMP = ((TMP_InputField) _textBox);
             _textBoxTMP.text = _text;
             _textBoxTMP.textComponent.fontStyle = _style | _font.FontStyle & ~_font.FontStyleMask;
@@ -229,9 +228,12 @@ namespace ConformalDecals.UI {
         private void OnDestroy() {
             RemoveControlLock();
         }
-
-        private void OnValueChanged() {
-            _onValueChanged(_text, _font, _style, _vertical, _lineSpacing, _charSpacing);
+        
+        private void LateUpdate() {
+            if (_textUpdated) {
+                _onValueChanged(_text, _font, _style, _vertical, _lineSpacing, _charSpacing);
+                _textUpdated = false;
+            }
         }
 
         private void UpdateStyleButtons() {

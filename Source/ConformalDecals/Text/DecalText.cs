@@ -86,5 +86,9 @@ namespace ConformalDecals.Text {
         public static bool operator !=(DecalText left, DecalText right) {
             return !Equals(left, right);
         }
+
+        public override string ToString() {
+            return $"{nameof(_text)}: {_text}, {nameof(_font)}: {_font}, {nameof(_style)}: {_style}, {nameof(_vertical)}: {_vertical}, {nameof(_lineSpacing)}: {_lineSpacing}, {nameof(_charSpacing)}: {_charSpacing}";
+        }
     }
 }

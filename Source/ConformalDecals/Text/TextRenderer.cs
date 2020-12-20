@@ -3,16 +3,12 @@ using System.Collections.Generic;
 using ConformalDecals.Util;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.Rendering;
+using Object = UnityEngine.Object;
 
 namespace ConformalDecals.Text {
-    // TODO: Testing shows the job system is unnecessary, so remove job system code.
-
     /// Class handing text rendering.
-    /// Is a singleton referencing a single gameobject in the scene which contains the TextMeshPro component
-    [KSPAddon(KSPAddon.Startup.Instantly, true)]
-    public class TextRenderer : MonoBehaviour {
+    public static class TextRenderer {
         /// Texture format used for returned textures.
         /// Unfortunately due to how Unity textures work, this cannot be R8 or Alpha8,
         /// so theres always a superfluous green channel using memory
@@ -22,163 +18,73 @@ namespace ConformalDecals.Text {
         /// Overriden below to be ARGB32 on DirectX because DirectX is dumb
         public static RenderTextureFormat textRenderTextureFormat = RenderTextureFormat.R8;
 
-        /// The text renderer object within the scene which contains the TextMeshPro component used for rendering.
-        public static TextRenderer Instance {
-            get {
-                if (!_instance._isSetup) {
-                    _instance.Setup();
-                }
-
-                return _instance;
-            }
-        }
-
-        /// Text Render unityevent, used with the job system to signal render completion
-        [Serializable]
-        public class TextRenderEvent : UnityEvent<TextRenderOutput> { }
-
         private const string ShaderName     = "ConformalDecals/Text Blit";
         private const int    MaxTextureSize = 4096;
         private const float  FontSize       = 100;
         private const float  PixelDensity   = 5;
 
-        private static TextRenderer _instance;
-
-        private bool        _isSetup;
-        private TextMeshPro _tmp;
-        private Shader      _blitShader;
+        private static Shader    _blitShader;
+        private static Texture2D _blankTexture;
 
         private static readonly Dictionary<DecalText, TextRenderOutput> RenderCache = new Dictionary<DecalText, TextRenderOutput>();
-        private static readonly Queue<TextRenderJob>                    RenderJobs  = new Queue<TextRenderJob>();
-
-        /// Update text using the job queue
-        public static TextRenderJob UpdateText(DecalText oldText, DecalText newText, UnityAction<TextRenderOutput> renderFinishedCallback) {
-            if (newText == null) throw new ArgumentNullException(nameof(newText));
-
-            var job = new TextRenderJob(oldText, newText, renderFinishedCallback);
-            RenderJobs.Enqueue(job);
-            return job;
-        }
 
         /// Update text immediately without using job queue
-        public static TextRenderOutput UpdateTextNow(DecalText oldText, DecalText newText) {
+        public static TextRenderOutput UpdateText(DecalText oldText, DecalText newText) {
             if (newText == null) throw new ArgumentNullException(nameof(newText));
 
-            return Instance.RunJob(new TextRenderJob(oldText, newText, null), out _);
+            if (!(oldText is null)) UnregisterText(oldText);
+
+            // now that all old references are handled, begin rendering the new output
+            if (!RenderCache.TryGetValue(newText, out var renderOutput)) {
+                renderOutput = RenderText(newText);
+                RenderCache.Add(newText, renderOutput);
+            }
+
+            renderOutput.UserCount++;
+            return renderOutput;
         }
 
         /// Unregister a user of a piece of text
         public static void UnregisterText(DecalText text) {
+            if (text == null) throw new ArgumentNullException(nameof(text));
+
             if (RenderCache.TryGetValue(text, out var renderedText)) {
                 renderedText.UserCount--;
                 if (renderedText.UserCount <= 0) {
                     RenderCache.Remove(text);
-                    Destroy(renderedText.Texture);
+                    var texture = renderedText.Texture;
+                    if (texture != _blankTexture) Object.Destroy(texture);
                 }
             }
         }
 
-        private void Start() {
-            if (_instance != null) {
-                Logging.LogError("Duplicate TextRenderer created???");
-            }
-
-            Logging.Log("Creating TextRenderer Object");
-            _instance = this;
-            DontDestroyOnLoad(gameObject);
-            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11 || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D12) {
-                textRenderTextureFormat = RenderTextureFormat.ARGB32; // DirectX is dumb
-            }
-
-            if (!SystemInfo.SupportsTextureFormat(textTextureFormat)) {
-                Logging.LogError($"Text texture format {textTextureFormat} not supported on this platform.");
-            }
-
-            if (!SystemInfo.SupportsRenderTextureFormat(textRenderTextureFormat)) {
-                Logging.LogError($"Text texture format {textRenderTextureFormat} not supported on this platform.");
-            }
-        }
-
-        /// Setup this text renderer instance for rendering
-        private void Setup() {
-            if (_isSetup) return;
-
-            Logging.Log("Setting Up TextRenderer Object");
-
-            _tmp = gameObject.AddComponent<TextMeshPro>();
-            _tmp.renderer.enabled = false; // dont automatically render
-
-            _blitShader = Shabby.Shabby.FindShader(ShaderName);
-            if (_blitShader == null) Logging.LogError($"Could not find text blit shader named '{ShaderName}'");
-
-            _isSetup = true;
-        }
-
-        /// Run a text render job
-        private TextRenderOutput RunJob(TextRenderJob job, out bool renderNeeded) {
-            if (!job.Needed) {
-                renderNeeded = false;
-                return null;
-            }
-
-            job.Start();
-
-            Texture2D texture = null;
-            if (job.OldText != null && RenderCache.TryGetValue(job.OldText, out var oldRender)) {
-                // old output still exists
-
-                oldRender.UserCount--;
-
-                if (oldRender.UserCount <= 0) {
-                    // this is the only usage of this output, so we are free to re-render into the texture
-
-                    texture = oldRender.Texture;
-                    RenderCache.Remove(job.OldText);
-                }
-            }
-
-            // now that all old references are handled, begin rendering the new output
-
-            if (RenderCache.TryGetValue(job.NewText, out var renderOutput)) {
-                renderNeeded = false;
-            }
-            else {
-                renderNeeded = true;
-
-                renderOutput = RenderText(job.NewText, texture);
-                RenderCache.Add(job.NewText, renderOutput);
-            }
-
-            renderOutput.UserCount++;
-
-            job.Finish(renderOutput);
-            return renderOutput;
-        }
 
         /// Render a piece of text to a given texture
-        public TextRenderOutput RenderText(DecalText text, Texture2D texture) {
+        public static TextRenderOutput RenderText(DecalText text) {
             if (text == null) throw new ArgumentNullException(nameof(text));
-            if (_tmp == null) throw new InvalidOperationException("TextMeshPro object not yet created.");
+
+            var tmpObject = new GameObject("Text Mesh Pro renderer");
+            var tmp = tmpObject.AddComponent<TextMeshPro>();
 
             // SETUP TMP OBJECT FOR RENDERING
-            _tmp.text = text.FormattedText;
-            _tmp.font = text.Font.FontAsset;
-            _tmp.fontStyle = text.Style | text.Font.FontStyle;
-            _tmp.lineSpacing = text.LineSpacing;
-            _tmp.characterSpacing = text.CharSpacing;
+            tmp.text = text.FormattedText;
+            tmp.font = text.Font.FontAsset;
+            tmp.fontStyle = text.Style | text.Font.FontStyle;
+            tmp.lineSpacing = text.LineSpacing;
+            tmp.characterSpacing = text.CharSpacing;
 
-            _tmp.extraPadding = true;
-            _tmp.enableKerning = true;
-            _tmp.enableWordWrapping = false;
-            _tmp.overflowMode = TextOverflowModes.Overflow;
-            _tmp.alignment = TextAlignmentOptions.Center;
-            _tmp.fontSize = FontSize;
+            tmp.extraPadding = true;
+            tmp.enableKerning = true;
+            tmp.enableWordWrapping = false;
+            tmp.overflowMode = TextOverflowModes.Overflow;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontSize = FontSize;
 
             // GENERATE MESH
-            _tmp.ClearMesh(false);
-            _tmp.ForceMeshUpdate();
+            tmp.ClearMesh(false);
+            tmp.ForceMeshUpdate();
 
-            var meshFilters = gameObject.GetComponentsInChildren<MeshFilter>();
+            var meshFilters = tmpObject.GetComponentsInChildren<MeshFilter>();
             var meshes = new Mesh[meshFilters.Length];
             var materials = new Material[meshFilters.Length];
 
@@ -189,9 +95,9 @@ namespace ConformalDecals.Text {
                 var renderer = meshFilters[i].gameObject.GetComponent<MeshRenderer>();
 
                 meshes[i] = meshFilters[i].mesh;
-                if (i == 0) meshes[i] = _tmp.mesh;
+                if (i == 0) meshes[i] = tmp.mesh;
 
-                materials[i] = Instantiate(renderer.material);
+                materials[i] = Object.Instantiate(renderer.material);
                 materials[i].shader = _blitShader;
 
                 if (renderer == null) throw new FormatException($"Object {meshFilters[i].gameObject.name} has filter but no renderer");
@@ -209,15 +115,16 @@ namespace ConformalDecals.Text {
             var size = bounds.size * PixelDensity;
             size.x = Mathf.Max(size.x, 0.1f);
             size.y = Mathf.Max(size.y, 0.1f);
-            
+
             var textureSize = new Vector2Int {
                 x = Mathf.NextPowerOfTwo((int) size.x),
                 y = Mathf.NextPowerOfTwo((int) size.y)
             };
 
             if (textureSize.x == 0 || textureSize.y == 0) {
-                Logging.LogWarning("No text present or error in texture size calculation. Aborting.");
-                return new TextRenderOutput(Texture2D.blackTexture, Rect.zero);
+                Logging.LogError("No text present or error in texture size calculation. Aborting.");
+                Object.Destroy(tmpObject);
+                return new TextRenderOutput(_blankTexture, Rect.zero);
             }
 
             // make sure texture isnt too big, scale it down if it is
@@ -242,12 +149,7 @@ namespace ConformalDecals.Text {
             };
 
             // SETUP TEXTURE
-            if (texture == null) {
-                texture = new Texture2D(textureSize.x, textureSize.y, textTextureFormat, true);
-            }
-            else if (texture.width != textureSize.x || texture.height != textureSize.y || texture.format != textTextureFormat) {
-                texture.Resize(textureSize.x, textureSize.y, textTextureFormat, true);
-            }
+            var texture = new Texture2D(textureSize.x, textureSize.y, textTextureFormat, false);
 
             // GENERATE PROJECTION MATRIX
             var halfSize = (Vector2) textureSize / PixelDensity / 2 / sizeRatio;
@@ -255,7 +157,7 @@ namespace ConformalDecals.Text {
                 bounds.center.y - halfSize.y, bounds.center.y + halfSize.y, -1, 1);
 
             // GET RENDERTEX
-            var renderTex = new RenderTexture(textureSize.x, textureSize.y, 0, textRenderTextureFormat, RenderTextureReadWrite.Linear) {autoGenerateMips = false};
+            var renderTex = RenderTexture.GetTemporary(textureSize.x, textureSize.y, 0, textRenderTextureFormat, RenderTextureReadWrite.Linear);
 
             // RENDER
             Graphics.SetRenderTarget(renderTex);
@@ -271,28 +173,42 @@ namespace ConformalDecals.Text {
                 }
             }
 
-            // COPY TEXTURE BACK INTO RAM
+            // COPY RENDERTEX INTO TEXTURE 
             var prevRT = RenderTexture.active;
             RenderTexture.active = renderTex;
-            texture.ReadPixels(new Rect(0, 0, textureSize.x, textureSize.y), 0, 0, true);
-            texture.Apply();
+            texture.ReadPixels(new Rect(0, 0, textureSize.x, textureSize.y), 0, 0, false);
+            texture.Apply(false, true);
             RenderTexture.active = prevRT;
 
             GL.PopMatrix();
-            
+
             // RELEASE RENDERTEX
-            renderTex.Release();
-            RenderTexture.Destroy(renderTex);
+            RenderTexture.ReleaseTemporary(renderTex);
 
-            // CLEAR SUBMESHES
-            _tmp.text = "";
-
-            for (int i = 0; i < transform.childCount; i++) {
-                var child = transform.GetChild(i);
-                Destroy(child.gameObject);
-            }
+            // DESTROY THE RENDERER OBJECT
+            Object.Destroy(tmpObject);
 
             return new TextRenderOutput(texture, window);
         }
+        
+        /// Setup shader and texture
+        public static void ModuleManagerPostLoad() {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11 || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D12) {
+                textRenderTextureFormat = RenderTextureFormat.ARGB32; // DirectX is dumb
+            }
+
+            if (!SystemInfo.SupportsTextureFormat(textTextureFormat)) {
+                Logging.LogError($"Text texture format {textTextureFormat} not supported on this platform.");
+            }
+
+            if (!SystemInfo.SupportsRenderTextureFormat(textRenderTextureFormat)) {
+                Logging.LogError($"Text texture format {textRenderTextureFormat} not supported on this platform.");
+            }
+
+            _blankTexture = Texture2D.blackTexture;
+            _blitShader = Shabby.Shabby.FindShader(ShaderName);
+            if (_blitShader == null) Logging.LogError($"Could not find text blit shader named '{ShaderName}'");
+        }
+
     }
 }

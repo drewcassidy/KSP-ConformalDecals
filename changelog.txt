@@ -1,3 +1,12 @@
+v0.2.7
+------
+- Supported KSP versions: 1.8.x to 1.11.x
+- Notes:
+ - Attaching decal parts in flight using engineer kerbals is not supported.
+- Fixes:
+ - Fixed certain non-ascii strings not rendering correctly under certain circumstances.
+ - Yet another attempted fix for the planet text glitch.
+
 v0.2.6
 ------
 - Fixes:
