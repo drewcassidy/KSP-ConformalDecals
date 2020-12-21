@@ -75,6 +75,14 @@ namespace ConformalDecals.Util {
             return ParseValueIndirect(ref value, node, valueName, int.TryParse);
         }
 
+        public static uint ParseUint(ConfigNode node, string valueName, bool isOptional = false, uint defaultValue = 0) {
+            return ParseValue(node, valueName, uint.TryParse, isOptional, defaultValue);
+        }
+
+        public static bool ParseUintIndirect(ref uint value, ConfigNode node, string valueName) {
+            return ParseValueIndirect(ref value, node, valueName, uint.TryParse);
+        }
+
         public static Color32 ParseColor32(ConfigNode node, string valueName, bool isOptional = false, Color32 defaultValue = default) {
             return ParseValue(node, valueName, TryParseColor32, isOptional, defaultValue);
         }
