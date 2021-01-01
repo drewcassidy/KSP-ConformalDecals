@@ -99,7 +99,7 @@ namespace ConformalDecals {
         private const  int DecalQueueMax      = 2400;
         private static int _decalQueueCounter = -1;
 
-        private Dictionary<Part, ProjectionPartTarget> _targets = new Dictionary<Part, ProjectionPartTarget>();
+        private readonly Dictionary<Part, ProjectionPartTarget> _targets = new Dictionary<Part, ProjectionPartTarget>();
 
         private bool      _isAttached;
         private Matrix4x4 _orthoMatrix;

@@ -1,5 +1,4 @@
 using ConformalDecals.MaterialProperties;
-using ConformalDecals.Util;
 using UniLinq;
 using UnityEngine;
 
@@ -46,8 +45,8 @@ namespace ConformalDecals {
 
         [KSPEvent(guiActive = false, guiActiveEditor = true, guiName = "#LOC_ConformalDecals_gui-select-flag")]
         public void SelectFlag() {
-            var flagBrowser = (Instantiate((Object) (new FlagBrowserGUIButton(null, null, null, null)).FlagBrowserPrefab) as GameObject).GetComponent<FlagBrowser>();
-            flagBrowser.OnFlagSelected = OnCustomFlagSelected;
+            var flagBrowser = (Instantiate((Object) (new FlagBrowserGUIButton(null, null, null, null)).FlagBrowserPrefab) as GameObject)?.GetComponent<FlagBrowser>();
+            if (flagBrowser is { }) flagBrowser.OnFlagSelected = OnCustomFlagSelected;
         }
 
         [KSPEvent(guiActive = false, guiActiveEditor = true, guiName = "#LOC_ConformalDecals_gui-reset-flag")]

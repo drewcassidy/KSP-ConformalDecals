@@ -1,7 +1,3 @@
-using System;
-using System.Text;
-using ConformalDecals.Util;
-using UniLinq;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -34,36 +30,6 @@ namespace ConformalDecals {
             _decalMPB = new MaterialPropertyBlock();
 
             SetNormalMap(renderer.sharedMaterial, useBaseNormal);
-        }
-
-        public ProjectionMeshTarget(ConfigNode node, Transform root, bool useBaseNormal) {
-            if (node == null) throw new ArgumentNullException(nameof(node));
-            if (root == null) throw new ArgumentNullException(nameof(root));
-            enabled = true;
-
-            var targetPath = ParseUtil.ParseString(node, "targetPath");
-            var targetName = ParseUtil.ParseString(node, "targetName");
-
-            _decalMatrix = ParseUtil.ParseMatrix4x4(node, "decalMatrix");
-            _decalNormal = ParseUtil.ParseVector3(node, "decalNormal");
-            _decalTangent = ParseUtil.ParseVector3(node, "decalTangent");
-            _decalMPB = new MaterialPropertyBlock();
-
-            target = LoadTransformPath(targetPath, root);
-            if (target.name != targetName) throw new FormatException("Target name does not match");
-
-            renderer = target.GetComponent<MeshRenderer>();
-            var filter = target.GetComponent<MeshFilter>();
-
-            if (!ValidateTarget(target, renderer, filter)) throw new FormatException("Invalid target");
-
-            mesh = filter.sharedMesh;
-
-            SetNormalMap(renderer.sharedMaterial, useBaseNormal);
-            
-            _decalMPB.SetMatrix(DecalPropertyIDs._ProjectionMatrix, _decalMatrix);
-            _decalMPB.SetVector(DecalPropertyIDs._DecalNormal, _decalNormal);
-            _decalMPB.SetVector(DecalPropertyIDs._DecalTangent, _decalTangent); 
         }
 
         private void SetNormalMap(Material targetMaterial, bool useBaseNormal) {
@@ -110,18 +76,6 @@ namespace ConformalDecals {
             Graphics.DrawMesh(mesh, target.localToWorldMatrix, decalMaterial, 0, camera, 0, _decalMPB, ShadowCastingMode.Off, true);
         }
 
-        public ConfigNode Save() {
-            var node = new ConfigNode(NodeName);
-            node.AddValue("decalMatrix", _decalMatrix);
-            node.AddValue("decalNormal", _decalNormal);
-            node.AddValue("decalTangent", _decalTangent);
-            node.AddValue("targetPath", SaveTransformPath(target, root)); // used to find the target transform
-            node.AddValue("targetName", target.name); // used to validate the mesh has not changed since last load
-
-            return node;
-        }
-
-
         public static bool ValidateTarget(Transform target, MeshRenderer renderer, MeshFilter filter) {
             if (renderer == null) return false;
             if (filter == null) return false;
@@ -134,34 +88,6 @@ namespace ConformalDecals {
             if (filter.sharedMesh == null) return false;
 
             return true;
-        }
-
-        private static string SaveTransformPath(Transform leaf, Transform root) {
-            var builder = new StringBuilder($"{leaf.GetSiblingIndex()}");
-            var current = leaf.parent;
-
-            while (current != root) {
-                builder.Insert(0, "/");
-                builder.Insert(0, current.GetSiblingIndex());
-                current = current.parent;
-                if (current == null) throw new FormatException("Leaf does not exist as a child of root");
-            }
-
-            return builder.ToString();
-        }
-
-        private static Transform LoadTransformPath(string path, Transform root) {
-            var indices = path.Split('/').Select(int.Parse);
-            var current = root;
-            Logging.Log($"root transform: {current.name}");
-
-            foreach (var index in indices) {
-                if (index > current.childCount) throw new FormatException("Child index path is invalid");
-                current = current.GetChild(index);
-                Logging.Log($"found child {current.name} at index {index}");
-            }
-
-            return current;
         }
     }
 }
