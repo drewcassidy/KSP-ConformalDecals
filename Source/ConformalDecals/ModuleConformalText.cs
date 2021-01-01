@@ -264,7 +264,7 @@ namespace ConformalDecals {
 
                 UpdateTextures();
                 UpdateMaterials();
-                UpdateScale();
+                UpdateProjection();
 
                 // QUEUE PART FOR ICON FIXING IN VAB
                 DecalIconFixer.QueuePart(part.name);

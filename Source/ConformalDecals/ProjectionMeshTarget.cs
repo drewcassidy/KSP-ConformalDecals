@@ -6,69 +6,65 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace ConformalDecals {
-    public class ProjectionTarget {
+    public class ProjectionMeshTarget : IProjectionTarget {
+        // enabled flag
+        public bool enabled = true;
+
         // Target object data
-        public readonly  Transform target;
-        public readonly  Part      targetPart;
-        private readonly Mesh      _targetMesh;
-        private readonly Matrix4x4 _decalMatrix;
-        private readonly Vector3   _decalNormal;
-        private readonly Vector3   _decalTangent;
-        private readonly bool      _useBaseNormal;
+        public readonly Transform    target;
+        public readonly Transform    root;
+        public readonly Mesh         mesh;
+        public readonly MeshRenderer renderer;
+
+        // Projection data
+        private Matrix4x4 _decalMatrix;
+        private Vector3   _decalNormal;
+        private Vector3   _decalTangent;
 
         // property block
         private readonly MaterialPropertyBlock _decalMPB;
 
-        public ProjectionTarget(Part targetPart, Transform target, MeshRenderer renderer, MeshFilter filter,
-            Matrix4x4 orthoMatrix, Transform projector, bool useBaseNormal) {
-
-            this.targetPart = targetPart;
+        public ProjectionMeshTarget(Transform target, Transform root, MeshRenderer renderer, Mesh mesh, bool useBaseNormal) {
+            this.root = root;
             this.target = target;
-            _targetMesh = filter.sharedMesh;
-            _useBaseNormal = useBaseNormal;
+            this.renderer = renderer;
+            this.mesh = mesh;
             _decalMPB = new MaterialPropertyBlock();
 
-            var projectorToTargetMatrix = target.worldToLocalMatrix * projector.localToWorldMatrix;
-
-            _decalMatrix = orthoMatrix * projectorToTargetMatrix.inverse;
-            _decalNormal = projectorToTargetMatrix.MultiplyVector(Vector3.back).normalized;
-            _decalTangent = projectorToTargetMatrix.MultiplyVector(Vector3.right).normalized;
-
-            SetupMPB(renderer.sharedMaterial);
+            SetNormalMap(renderer.sharedMaterial, useBaseNormal);
         }
 
-        public ProjectionTarget(ConfigNode node, Vessel vessel, bool useBaseNormal) {
-            var flightID = (uint) ParseUtil.ParseInt(node, "part");
+        public ProjectionMeshTarget(ConfigNode node, Transform root, bool useBaseNormal) {
+            if (node == null) throw new ArgumentNullException(nameof(node));
+            if (root == null) throw new ArgumentNullException(nameof(root));
+
             var targetPath = ParseUtil.ParseString(node, "targetPath");
             var targetName = ParseUtil.ParseString(node, "targetName");
 
             _decalMatrix = ParseUtil.ParseMatrix4x4(node, "decalMatrix");
             _decalNormal = ParseUtil.ParseVector3(node, "decalNormal");
             _decalTangent = ParseUtil.ParseVector3(node, "decalTangent");
-            _useBaseNormal = useBaseNormal;
             _decalMPB = new MaterialPropertyBlock();
 
-            targetPart = vessel[flightID];
-            if (targetPart == null) throw new IndexOutOfRangeException("Vessel returned null part");
-            target = LoadTransformPath(targetPath, targetPart.transform);
+            target = LoadTransformPath(targetPath, root);
             if (target.name != targetName) throw new FormatException("Target name does not match");
 
-            var renderer = target.GetComponent<MeshRenderer>();
+            renderer = target.GetComponent<MeshRenderer>();
             var filter = target.GetComponent<MeshFilter>();
 
             if (!ValidateTarget(target, renderer, filter)) throw new FormatException("Invalid target");
 
-            _targetMesh = filter.sharedMesh;
+            mesh = filter.sharedMesh;
 
-            SetupMPB(renderer.sharedMaterial);
-        }
-
-        private void SetupMPB(Material targetMaterial) {
+            SetNormalMap(renderer.sharedMaterial, useBaseNormal);
+            
             _decalMPB.SetMatrix(DecalPropertyIDs._ProjectionMatrix, _decalMatrix);
             _decalMPB.SetVector(DecalPropertyIDs._DecalNormal, _decalNormal);
-            _decalMPB.SetVector(DecalPropertyIDs._DecalTangent, _decalTangent);
+            _decalMPB.SetVector(DecalPropertyIDs._DecalTangent, _decalTangent); 
+        }
 
-            if (_useBaseNormal && targetMaterial.HasProperty(DecalPropertyIDs._BumpMap)) {
+        private void SetNormalMap(Material targetMaterial, bool useBaseNormal) {
+            if (useBaseNormal && targetMaterial.HasProperty(DecalPropertyIDs._BumpMap)) {
                 _decalMPB.SetTexture(DecalPropertyIDs._BumpMap, targetMaterial.GetTexture(DecalPropertyIDs._BumpMap));
 
                 var normalScale = targetMaterial.GetTextureScale(DecalPropertyIDs._BumpMap);
@@ -81,20 +77,40 @@ namespace ConformalDecals {
             }
         }
 
+        public void Project(Matrix4x4 orthoMatrix, Transform projector, Bounds projectionBounds) {
+            if (projectionBounds.Intersects(renderer.bounds)) {
+                enabled = true;
+                
+                var projectorToTargetMatrix = target.worldToLocalMatrix * projector.localToWorldMatrix;
+
+                _decalMatrix = orthoMatrix * projectorToTargetMatrix.inverse;
+                _decalNormal = projectorToTargetMatrix.MultiplyVector(Vector3.back).normalized;
+                _decalTangent = projectorToTargetMatrix.MultiplyVector(Vector3.right).normalized;
+
+                _decalMPB.SetMatrix(DecalPropertyIDs._ProjectionMatrix, _decalMatrix);
+                _decalMPB.SetVector(DecalPropertyIDs._DecalNormal, _decalNormal);
+                _decalMPB.SetVector(DecalPropertyIDs._DecalTangent, _decalTangent);
+            }
+            else {
+                enabled = false;
+            }
+        }
+
         public void Render(Material decalMaterial, MaterialPropertyBlock partMPB, Camera camera) {
+            if (!enabled) return;
+
             _decalMPB.SetFloat(PropertyIDs._RimFalloff, partMPB.GetFloat(PropertyIDs._RimFalloff));
             _decalMPB.SetColor(PropertyIDs._RimColor, partMPB.GetColor(PropertyIDs._RimColor));
 
-            Graphics.DrawMesh(_targetMesh, target.localToWorldMatrix, decalMaterial, 0, camera, 0, _decalMPB, ShadowCastingMode.Off, true);
+            Graphics.DrawMesh(mesh, target.localToWorldMatrix, decalMaterial, 0, camera, 0, _decalMPB, ShadowCastingMode.Off, true);
         }
 
         public ConfigNode Save() {
-            var node = new ConfigNode("TARGET");
-            node.AddValue("part", targetPart.flightID);
+            var node = new ConfigNode("MESH_TARGET");
             node.AddValue("decalMatrix", _decalMatrix);
             node.AddValue("decalNormal", _decalNormal);
             node.AddValue("decalTangent", _decalTangent);
-            node.AddValue("targetPath", SaveTransformPath(target, targetPart.transform)); // used to find the target transform
+            node.AddValue("targetPath", SaveTransformPath(target, root)); // used to find the target transform
             node.AddValue("targetName", target.name); // used to validate the mesh has not changed since last load
 
             return node;
@@ -116,7 +132,7 @@ namespace ConformalDecals {
         }
 
         private static string SaveTransformPath(Transform leaf, Transform root) {
-            var builder = new StringBuilder(leaf.name);
+            var builder = new StringBuilder($"{leaf.GetSiblingIndex()}");
             var current = leaf.parent;
 
             while (current != root) {

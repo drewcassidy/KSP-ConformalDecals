@@ -99,7 +99,7 @@ namespace ConformalDecals {
         private const  int DecalQueueMax      = 2400;
         private static int _decalQueueCounter = -1;
 
-        private List<ProjectionTarget> _targets;
+        private Dictionary<Part, ProjectionPartTarget> _targets;
 
         private bool      _isAttached;
         private Matrix4x4 _orthoMatrix;
@@ -155,7 +155,7 @@ namespace ConformalDecals {
         /// <inheritdoc />
         public override void OnIconCreate() {
             UpdateTextures();
-            UpdateScale();
+            UpdateProjection();
         }
 
         /// <inheritdoc />
@@ -226,12 +226,12 @@ namespace ConformalDecals {
         protected void OnProjectionTweakEvent(BaseField field, object obj) {
             // scale or depth values have been changed, so update scale
             // and update projection matrices if attached
-            UpdateScale();
+            UpdateProjection();
             UpdateTargets();
 
             foreach (var counterpart in part.symmetryCounterparts) {
                 var decal = counterpart.GetComponent<ModuleConformalDecal>();
-                decal.UpdateScale();
+                decal.UpdateProjection();
                 decal.UpdateTargets();
             }
         }
@@ -256,29 +256,68 @@ namespace ConformalDecals {
 
         /// Called when a new variant is applied in the editor
         protected void OnVariantApplied(Part eventPart, PartVariant variant) {
-            if (_isAttached && eventPart != null) {
-                if (projectMultiple && eventPart != part.parent) return;
-                else if (!_targets.Select(o => o.targetPart).Contains(eventPart)) return;
-
+            if (_isAttached && eventPart != null && (!projectMultiple || eventPart == part.parent)) {
+                _targets.Remove(eventPart);
                 UpdateTargets();
             }
         }
 
         /// Called when an editor event occurs
         protected void OnEditorEvent(ConstructionEventType eventType, Part eventPart) {
-            if (this.part != eventPart && !part.symmetryCounterparts.Contains(eventPart)) return;
             switch (eventType) {
                 case ConstructionEventType.PartAttached:
-                    OnAttach();
+                    OnPartAttached(eventPart);
                     break;
                 case ConstructionEventType.PartDetached:
-                    OnDetach();
+                    OnPartDetached(eventPart);
                     break;
                 case ConstructionEventType.PartOffsetting:
                 case ConstructionEventType.PartRotating:
-                    UpdateScale();
-                    UpdateTargets();
+                    OnPartTransformed(eventPart);
                     break;
+            }
+        }
+
+        /// Called when a part is transformed in the editor
+        protected void OnPartTransformed(Part eventPart) {
+            if (this.part == eventPart) {
+                UpdateProjection();
+                UpdateTargets();
+            }
+            else {
+                UpdatePartTarget(eventPart, _boundsRenderer.bounds);
+                // recursively call for child parts
+                foreach (var child in eventPart.children) {
+                    OnPartTransformed(child);
+                }
+            }
+        }
+
+        /// Called when a part is attached in the editor
+        protected void OnPartAttached(Part eventPart) {
+            if (this.part == eventPart) {
+                OnAttach();
+            }
+            else {
+                UpdatePartTarget(eventPart, _boundsRenderer.bounds);
+                // recursively call for child parts
+                foreach (var child in eventPart.children) {
+                    OnPartAttached(child);
+                }
+            }
+        }
+
+        /// Called when a part is detached in the editor
+        protected void OnPartDetached(Part eventPart) {
+            if (this.part == eventPart) {
+                OnDetach();
+            }
+            else {
+                _targets.Remove(eventPart);
+                // recursively call for child parts
+                foreach (var child in eventPart.children) {
+                    OnPartDetached(child);
+                }
             }
         }
 
@@ -287,6 +326,9 @@ namespace ConformalDecals {
             if (willDie == part.parent) {
                 this.Log("Parent part about to be destroyed! Killing decal part.");
                 part.Die();
+            }
+            else if (projectMultiple) {
+                _targets.Remove(willDie);
             }
         }
 
@@ -310,7 +352,7 @@ namespace ConformalDecals {
             Camera.onPreCull += Render;
 
             UpdateMaterials();
-            UpdateScale();
+            UpdateProjection();
             UpdateTargets();
         }
 
@@ -328,11 +370,11 @@ namespace ConformalDecals {
             Camera.onPreCull -= Render;
 
             UpdateMaterials();
-            UpdateScale();
+            UpdateProjection();
         }
 
         // FUNCTIONS
-        
+
         /// Load any settings from the decal config
         protected virtual void LoadDecal(ConfigNode node) {
             // PARSE TRANSFORMS
@@ -498,10 +540,10 @@ namespace ConformalDecals {
         protected virtual void UpdateAll() {
             UpdateTextures();
             UpdateMaterials();
-            UpdateScale();
+            UpdateProjection();
             UpdateTargets();
         }
-        
+
         /// Update decal textures
         protected virtual void UpdateTextures() { }
 
@@ -521,7 +563,7 @@ namespace ConformalDecals {
         }
 
         /// Update decal scale and projection
-        protected void UpdateScale() {
+        protected void UpdateProjection() {
 
             // Update scale and depth
             scale = Mathf.Max(0.01f, scale);
@@ -559,7 +601,7 @@ namespace ConformalDecals {
             if (_isAttached) {
                 // Update projection targets
                 if (_targets == null) {
-                    _targets = new List<ProjectionTarget>();
+                    _targets = new Dictionary<Part, ProjectionPartTarget>();
                 }
                 else {
                     _targets.Clear();
@@ -587,6 +629,9 @@ namespace ConformalDecals {
         protected void UpdateTargets() {
             if (!_isAttached) return;
 
+            var projectionBounds = _boundsRenderer.bounds;
+
+            // collect list of potential targets
             IEnumerable<Part> targetParts;
             if (projectMultiple) {
                 targetParts = HighLogic.LoadedSceneIsFlight ? part.vessel.parts : EditorLogic.fetch.ship.parts;
@@ -596,25 +641,30 @@ namespace ConformalDecals {
             }
 
             foreach (var targetPart in targetParts) {
-                if (targetPart.GetComponent<ModuleConformalDecal>() != null) continue; // skip other decals
+                UpdatePartTarget(targetPart, projectionBounds);
+            }
+        }
 
-                foreach (var renderer in targetPart.FindModelComponents<MeshRenderer>()) {
-                    var target = renderer.transform;
-                    var filter = target.GetComponent<MeshFilter>();
+        protected void UpdatePartTarget(Part targetPart, Bounds projectionBounds) {
+            if (targetPart.GetComponent<ModuleConformalDecal>() != null) return; // skip other decals
 
-                    // check if the target has any missing data
-                    if (!ProjectionTarget.ValidateTarget(target, renderer, filter)) continue;
+            this.Log($"Updating projection onto part {targetPart.name}");
 
-                    // check bounds for intersection
-                    if (_boundsRenderer.bounds.Intersects(renderer.bounds)) {
-                        // create new ProjectionTarget to represent the renderer
-                        var projectionTarget = new ProjectionTarget(targetPart, target, renderer, filter, _orthoMatrix, decalProjectorTransform, useBaseNormal);
+            if (!_targets.TryGetValue(targetPart, out var target)) {
+                var rendererList = targetPart.FindModelComponents<MeshRenderer>();
 
-                        // add the target to the list
-                        _targets.Add(projectionTarget);
-                    }
+                if (rendererList.Any(o => projectionBounds.Intersects(o.bounds))) {
+                    target = new ProjectionPartTarget(targetPart, useBaseNormal);
+                    _targets.Add(targetPart, target);
+                }
+                else {
+                    return;
                 }
             }
+
+            this.Log($"valid target: {targetPart.name}");
+
+            target.Project(_orthoMatrix, decalProjectorTransform, projectionBounds);
         }
 
         /// Render the decal
@@ -622,7 +672,7 @@ namespace ConformalDecals {
             if (!_isAttached) return;
 
             // render on each target object
-            foreach (var target in _targets) {
+            foreach (var target in _targets.Values) {
                 target.Render(_decalMaterial, part.mpb, camera);
             }
         }
