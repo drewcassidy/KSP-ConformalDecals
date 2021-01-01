@@ -94,6 +94,7 @@ namespace ConformalDecals {
 
         // EVENTS
 
+        /// <inheritdoc />
         public override void OnSave(ConfigNode node) {
             node.AddValue("text", WebUtility.UrlEncode(text));
             node.AddValue("fontName", font.Name);

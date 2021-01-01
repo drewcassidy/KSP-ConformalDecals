@@ -7,8 +7,10 @@ using UnityEngine.Rendering;
 
 namespace ConformalDecals {
     public class ProjectionMeshTarget : IProjectionTarget {
+        public const string NodeName = "MESH_TARGET";
+        
         // enabled flag
-        public bool enabled = true;
+        public bool enabled;
 
         // Target object data
         public readonly Transform    target;
@@ -37,6 +39,7 @@ namespace ConformalDecals {
         public ProjectionMeshTarget(ConfigNode node, Transform root, bool useBaseNormal) {
             if (node == null) throw new ArgumentNullException(nameof(node));
             if (root == null) throw new ArgumentNullException(nameof(root));
+            enabled = true;
 
             var targetPath = ParseUtil.ParseString(node, "targetPath");
             var targetName = ParseUtil.ParseString(node, "targetName");
@@ -77,7 +80,7 @@ namespace ConformalDecals {
             }
         }
 
-        public void Project(Matrix4x4 orthoMatrix, Transform projector, Bounds projectionBounds) {
+        public bool Project(Matrix4x4 orthoMatrix, Transform projector, Bounds projectionBounds) {
             if (projectionBounds.Intersects(renderer.bounds)) {
                 enabled = true;
                 
@@ -94,6 +97,8 @@ namespace ConformalDecals {
             else {
                 enabled = false;
             }
+
+            return enabled;
         }
 
         public void Render(Material decalMaterial, MaterialPropertyBlock partMPB, Camera camera) {
@@ -106,7 +111,7 @@ namespace ConformalDecals {
         }
 
         public ConfigNode Save() {
-            var node = new ConfigNode("MESH_TARGET");
+            var node = new ConfigNode(NodeName);
             node.AddValue("decalMatrix", _decalMatrix);
             node.AddValue("decalNormal", _decalNormal);
             node.AddValue("decalTangent", _decalTangent);
@@ -148,10 +153,12 @@ namespace ConformalDecals {
         private static Transform LoadTransformPath(string path, Transform root) {
             var indices = path.Split('/').Select(int.Parse);
             var current = root;
+            Logging.Log($"root transform: {current.name}");
 
             foreach (var index in indices) {
                 if (index > current.childCount) throw new FormatException("Child index path is invalid");
                 current = current.GetChild(index);
+                Logging.Log($"found child {current.name} at index {index}");
             }
 
             return current;

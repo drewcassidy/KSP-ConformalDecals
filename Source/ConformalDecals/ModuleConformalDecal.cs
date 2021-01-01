@@ -99,7 +99,7 @@ namespace ConformalDecals {
         private const  int DecalQueueMax      = 2400;
         private static int _decalQueueCounter = -1;
 
-        private Dictionary<Part, ProjectionPartTarget> _targets;
+        private Dictionary<Part, ProjectionPartTarget> _targets = new Dictionary<Part, ProjectionPartTarget>();
 
         private bool      _isAttached;
         private Matrix4x4 _orthoMatrix;
@@ -284,7 +284,7 @@ namespace ConformalDecals {
                 UpdateProjection();
                 UpdateTargets();
             }
-            else {
+            else if (_isAttached && projectMultiple) {
                 UpdatePartTarget(eventPart, _boundsRenderer.bounds);
                 // recursively call for child parts
                 foreach (var child in eventPart.children) {
@@ -298,7 +298,7 @@ namespace ConformalDecals {
             if (this.part == eventPart) {
                 OnAttach();
             }
-            else {
+            else if (projectMultiple) {
                 UpdatePartTarget(eventPart, _boundsRenderer.bounds);
                 // recursively call for child parts
                 foreach (var child in eventPart.children) {
@@ -312,7 +312,7 @@ namespace ConformalDecals {
             if (this.part == eventPart) {
                 OnDetach();
             }
-            else {
+            else if (projectMultiple) {
                 _targets.Remove(eventPart);
                 // recursively call for child parts
                 foreach (var child in eventPart.children) {
@@ -599,14 +599,6 @@ namespace ConformalDecals {
             materialProperties.UpdateScale(size);
 
             if (_isAttached) {
-                // Update projection targets
-                if (_targets == null) {
-                    _targets = new Dictionary<Part, ProjectionPartTarget>();
-                }
-                else {
-                    _targets.Clear();
-                }
-
                 // update orthogonal matrix
                 _orthoMatrix = Matrix4x4.identity;
                 _orthoMatrix[0, 3] = 0.5f;
