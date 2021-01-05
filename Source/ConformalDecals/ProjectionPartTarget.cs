@@ -40,6 +40,8 @@ namespace ConformalDecals {
         }
 
         public void Render(Material decalMaterial, MaterialPropertyBlock partMPB, Camera camera) {
+            if (!enabled) return;
+            
             foreach (var target in meshTargets) {
                 target.Render(decalMaterial, partMPB, camera);
             }

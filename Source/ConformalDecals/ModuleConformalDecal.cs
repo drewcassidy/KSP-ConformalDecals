@@ -298,7 +298,7 @@ namespace ConformalDecals {
             if (this.part == eventPart) {
                 OnAttach();
             }
-            else if (projectMultiple) {
+            else if (_isAttached && projectMultiple) {
                 UpdatePartTarget(eventPart, _boundsRenderer.bounds);
                 // recursively call for child parts
                 foreach (var child in eventPart.children) {
@@ -312,7 +312,7 @@ namespace ConformalDecals {
             if (this.part == eventPart) {
                 OnDetach();
             }
-            else if (projectMultiple) {
+            else if (_isAttached && projectMultiple) {
                 _targets.Remove(eventPart);
                 // recursively call for child parts
                 foreach (var child in eventPart.children) {
@@ -327,7 +327,7 @@ namespace ConformalDecals {
                 this.Log("Parent part about to be destroyed! Killing decal part.");
                 part.Die();
             }
-            else if (projectMultiple) {
+            else if (_isAttached && projectMultiple) {
                 _targets.Remove(willDie);
             }
         }
@@ -341,6 +341,7 @@ namespace ConformalDecals {
             }
 
             _isAttached = true;
+            _targets.Clear();
 
             // hide model
             decalModelTransform.gameObject.SetActive(false);
@@ -620,8 +621,12 @@ namespace ConformalDecals {
         /// Called when updating decal targets
         protected void UpdateTargets() {
             if (!_isAttached) return;
-
             var projectionBounds = _boundsRenderer.bounds;
+
+            // disable all targets
+            foreach (var target in _targets.Values) {
+                target.enabled = false;
+            }
 
             // collect list of potential targets
             IEnumerable<Part> targetParts;
