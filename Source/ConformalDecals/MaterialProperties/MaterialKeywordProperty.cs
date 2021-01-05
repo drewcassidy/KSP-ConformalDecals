@@ -8,7 +8,7 @@ namespace ConformalDecals.MaterialProperties {
         public override void ParseNode(ConfigNode node) {
             base.ParseNode(node);
 
-            ParseUtil.ParseBoolIndirect(ref value, node, "value");
+            value = ParseUtil.ParseBool(node, "value", true, true);
         }
 
         public override void Modify(Material material) {

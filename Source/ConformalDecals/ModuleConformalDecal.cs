@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using ConformalDecals.MaterialProperties;
 using ConformalDecals.Util;
+using UniLinq;
 using UnityEngine;
 
 namespace ConformalDecals {
@@ -31,7 +32,7 @@ namespace ConformalDecals {
 
         [KSPField] public bool    scaleAdjustable = true;
         [KSPField] public float   defaultScale    = 1;
-        [KSPField] public Vector2 scaleRange      = new Vector2(0, 4);
+        [KSPField] public Vector2 scaleRange      = new Vector2(0, 5);
 
         [KSPField] public DecalScaleMode scaleMode = DecalScaleMode.HEIGHT;
 
@@ -60,26 +61,28 @@ namespace ConformalDecals {
 
         // INTERNAL VALUES
         [KSPField(guiName = "#LOC_ConformalDecals_gui-scale", guiActive = false, guiActiveEditor = true, isPersistant = true, guiFormat = "F2", guiUnits = "m"),
-         UI_FloatRange(stepIncrement = 0.05f)]
+         UI_FloatRange()]
         public float scale = 1.0f;
 
         [KSPField(guiName = "#LOC_ConformalDecals_gui-depth", guiActive = false, guiActiveEditor = true, isPersistant = true, guiFormat = "F2", guiUnits = "m"),
-         UI_FloatRange(stepIncrement = 0.02f)]
+         UI_FloatRange()]
         public float depth = 0.2f;
 
         [KSPField(guiName = "#LOC_ConformalDecals_gui-opacity", guiActive = false, guiActiveEditor = true, isPersistant = true, guiFormat = "P0"),
-         UI_FloatRange(stepIncrement = 0.05f)]
+         UI_FloatRange()]
         public float opacity = 1.0f;
 
         [KSPField(guiName = "#LOC_ConformalDecals_gui-cutoff", guiActive = false, guiActiveEditor = true, isPersistant = true, guiFormat = "P0"),
-         UI_FloatRange(stepIncrement = 0.05f)]
+         UI_FloatRange()]
         public float cutoff = 0.5f;
 
         [KSPField(guiName = "#LOC_ConformalDecals_gui-wear", guiActive = false, guiActiveEditor = true, isPersistant = true, guiFormat = "F0"),
          UI_FloatRange()]
         public float wear = 100;
 
-        [KSPField(isPersistant = true)] public bool projectMultiple; // reserved for future features. do not modify
+        [KSPField(guiName = "#LOC_ConformalDecals_gui-multiproject", guiActive = false, guiActiveEditor = true, isPersistant = true),
+         UI_Toggle()]
+        public bool projectMultiple = true;
 
         [KSPField] public MaterialPropertyCollection materialProperties;
 
@@ -96,7 +99,7 @@ namespace ConformalDecals {
         private const  int DecalQueueMax      = 2400;
         private static int _decalQueueCounter = -1;
 
-        private List<ProjectionTarget> _targets;
+        private readonly Dictionary<Part, ProjectionPartTarget> _targets = new Dictionary<Part, ProjectionPartTarget>();
 
         private bool      _isAttached;
         private Matrix4x4 _orthoMatrix;
@@ -116,6 +119,8 @@ namespace ConformalDecals {
             }
         }
 
+        // EVENTS
+
         /// <inheritdoc />
         public override void OnAwake() {
             base.OnAwake();
@@ -130,114 +135,27 @@ namespace ConformalDecals {
 
         /// <inheritdoc />
         public override void OnLoad(ConfigNode node) {
+            // Load
             try {
-                // SETUP TRANSFORMS
-                decalFrontTransform = part.FindModelTransform(decalFront);
-                if (decalFrontTransform == null) throw new FormatException($"Could not find decalFront transform: '{decalFront}'.");
-
-                decalBackTransform = part.FindModelTransform(decalBack);
-                if (decalBackTransform == null) throw new FormatException($"Could not find decalBack transform: '{decalBack}'.");
-
-                decalModelTransform = part.FindModelTransform(decalModel);
-                if (decalModelTransform == null) throw new FormatException($"Could not find decalModel transform: '{decalModel}'.");
-
-                decalProjectorTransform = part.FindModelTransform(decalProjector);
-                if (decalProjectorTransform == null) throw new FormatException($"Could not find decalProjector transform: '{decalProjector}'.");
-
-                decalColliderTransform = part.FindModelTransform(decalCollider);
-                if (decalColliderTransform == null) throw new FormatException($"Could not find decalCollider transform: '{decalCollider}'.");
-
-                // SETUP BACK MATERIAL
-                if (updateBackScale) {
-                    var backRenderer = decalBackTransform.GetComponent<MeshRenderer>();
-                    if (backRenderer == null) {
-                        this.LogError($"Specified decalBack transform {decalBack} has no renderer attached! Setting updateBackScale to false.");
-                        updateBackScale = false;
-                    }
-                    else {
-                        backMaterial = backRenderer.material;
-                        if (backMaterial == null) {
-                            this.LogError($"Specified decalBack transform {decalBack} has a renderer but no material! Setting updateBackScale to false.");
-                            updateBackScale = false;
-                        }
-                        else {
-                            if (backTextureBaseScale == default) backTextureBaseScale = backMaterial.GetTextureScale(PropertyIDs._MainTex);
-                        }
-                    }
-                }
-
-                // PARSE MATERIAL PROPERTIES
-
-                // set shader
-                materialProperties.SetShader(shader);
-                materialProperties.AddOrGetProperty<MaterialKeywordProperty>("DECAL_BASE_NORMAL").value = useBaseNormal;
-
-                // add keyword nodes
-                foreach (var keywordNode in node.GetNodes("KEYWORD")) {
-                    materialProperties.ParseProperty<MaterialKeywordProperty>(keywordNode);
-                }
-
-                // add texture nodes
-                foreach (var textureNode in node.GetNodes("TEXTURE")) {
-                    materialProperties.ParseProperty<MaterialTextureProperty>(textureNode);
-                }
-
-                // add float nodes
-                foreach (var floatNode in node.GetNodes("FLOAT")) {
-                    materialProperties.ParseProperty<MaterialTextureProperty>(floatNode);
-                }
-
-                // add color nodes
-                foreach (var colorNode in node.GetNodes("COLOR")) {
-                    materialProperties.ParseProperty<MaterialColorProperty>(colorNode);
-                }
-
-                // handle texture tiling parameters
-                var tileString = node.GetValue("tile");
-                if (!string.IsNullOrEmpty(tileString)) {
-                    var tileValid = ParseExtensions.TryParseRect(tileString, out tileRect);
-                    if (!tileValid) throw new FormatException($"Invalid rect value for tile '{tileString}'");
-                }
-
-                if (tileRect.x >= 0) {
-                    materialProperties.UpdateTile(tileRect);
-                }
-                else if (tileIndex >= 0) {
-                    materialProperties.UpdateTile(tileIndex, tileSize);
-                }
+                LoadDecal(node);
             }
             catch (Exception e) {
-                this.LogException("Exception parsing partmodule", e);
+                this.LogException("Error loading decal", e);
             }
 
-            UpdateMaterials();
-
-            foreach (var keyword in _decalMaterial.shaderKeywords) {
-                this.Log($"keyword: {keyword}");
+            // Setup
+            try {
+                SetupDecal();
             }
-            
-            if (HighLogic.LoadedSceneIsEditor) {
-                UpdateTweakables();
-            }
-
-            if (HighLogic.LoadedSceneIsGame) {
-                UpdateScale();
-            }
-            else {
-                scale = defaultScale;
-                depth = defaultDepth;
-                opacity = defaultOpacity;
-                cutoff = defaultCutoff;
-                wear = defaultWear;
-
-                // QUEUE PART FOR ICON FIXING IN VAB
-                DecalIconFixer.QueuePart(part.name);
+            catch (Exception e) {
+                this.LogException("Error setting up decal", e);
             }
         }
 
         /// <inheritdoc />
         public override void OnIconCreate() {
-            UpdateScale();
+            UpdateTextures();
+            UpdateProjection();
         }
 
         /// <inheritdoc />
@@ -255,6 +173,8 @@ namespace ConformalDecals {
             }
         }
 
+        /// Called after OnStart is finished for all parts
+        /// This is mostly used to make sure all B9 variants are already in place for the rest of the vessel
         public override void OnStartFinished(StartState state) {
             // handle game events
             if (HighLogic.LoadedSceneIsGame) {
@@ -283,6 +203,7 @@ namespace ConformalDecals {
             }
         }
 
+        /// Called when the decal is destroyed
         public virtual void OnDestroy() {
             // remove GameEvents
             if (HighLogic.LoadedSceneIsEditor) {
@@ -301,17 +222,21 @@ namespace ConformalDecals {
             Destroy(materialProperties);
         }
 
-        protected void OnSizeTweakEvent(BaseField field, object obj) {
+        /// Called when the decal's projection and scale is modified through a tweakable
+        protected void OnProjectionTweakEvent(BaseField field, object obj) {
             // scale or depth values have been changed, so update scale
             // and update projection matrices if attached
-            UpdateScale();
+            UpdateProjection();
+            UpdateTargets();
 
             foreach (var counterpart in part.symmetryCounterparts) {
                 var decal = counterpart.GetComponent<ModuleConformalDecal>();
-                decal.UpdateScale();
+                decal.UpdateProjection();
+                decal.UpdateTargets();
             }
         }
 
+        /// Called when the decal's material is modified through a tweakable
         protected void OnMaterialTweakEvent(BaseField field, object obj) {
             materialProperties.SetOpacity(opacity);
             materialProperties.SetCutoff(cutoff);
@@ -329,35 +254,85 @@ namespace ConformalDecals {
             }
         }
 
+        /// Called when a new variant is applied in the editor
         protected void OnVariantApplied(Part eventPart, PartVariant variant) {
-            if (_isAttached && eventPart == part.parent) {
+            if (_isAttached && eventPart != null && (!projectMultiple || eventPart == part.parent)) {
+                _targets.Remove(eventPart);
                 UpdateTargets();
             }
         }
 
+        /// Called when an editor event occurs
         protected void OnEditorEvent(ConstructionEventType eventType, Part eventPart) {
-            if (this.part != eventPart && !part.symmetryCounterparts.Contains(eventPart)) return;
             switch (eventType) {
                 case ConstructionEventType.PartAttached:
-                    OnAttach();
+                    OnPartAttached(eventPart);
                     break;
                 case ConstructionEventType.PartDetached:
-                    OnDetach();
+                    OnPartDetached(eventPart);
                     break;
                 case ConstructionEventType.PartOffsetting:
                 case ConstructionEventType.PartRotating:
-                    UpdateScale();
+                    OnPartTransformed(eventPart);
                     break;
             }
         }
 
+        /// Called when a part is transformed in the editor
+        protected void OnPartTransformed(Part eventPart) {
+            if (this.part == eventPart) {
+                UpdateProjection();
+                UpdateTargets();
+            }
+            else if (_isAttached && projectMultiple) {
+                UpdatePartTarget(eventPart, _boundsRenderer.bounds);
+                // recursively call for child parts
+                foreach (var child in eventPart.children) {
+                    OnPartTransformed(child);
+                }
+            }
+        }
+
+        /// Called when a part is attached in the editor
+        protected void OnPartAttached(Part eventPart) {
+            if (this.part == eventPart) {
+                OnAttach();
+            }
+            else if (_isAttached && projectMultiple) {
+                UpdatePartTarget(eventPart, _boundsRenderer.bounds);
+                // recursively call for child parts
+                foreach (var child in eventPart.children) {
+                    OnPartAttached(child);
+                }
+            }
+        }
+
+        /// Called when a part is detached in the editor
+        protected void OnPartDetached(Part eventPart) {
+            if (this.part == eventPart) {
+                OnDetach();
+            }
+            else if (_isAttached && projectMultiple) {
+                _targets.Remove(eventPart);
+                // recursively call for child parts
+                foreach (var child in eventPart.children) {
+                    OnPartDetached(child);
+                }
+            }
+        }
+
+        /// Called when part `willDie` will be destroyed
         protected void OnPartWillDie(Part willDie) {
             if (willDie == part.parent) {
                 this.Log("Parent part about to be destroyed! Killing decal part.");
                 part.Die();
             }
+            else if (_isAttached && projectMultiple) {
+                _targets.Remove(willDie);
+            }
         }
 
+        /// Called when decal is attached to a new part
         protected virtual void OnAttach() {
             if (part.parent == null) {
                 this.LogError("Attach function called but part has no parent!");
@@ -366,6 +341,7 @@ namespace ConformalDecals {
             }
 
             _isAttached = true;
+            _targets.Clear();
 
             // hide model
             decalModelTransform.gameObject.SetActive(false);
@@ -377,10 +353,11 @@ namespace ConformalDecals {
             Camera.onPreCull += Render;
 
             UpdateMaterials();
+            UpdateProjection();
             UpdateTargets();
-            UpdateScale();
         }
 
+        /// Called when decal is detached from its parent part
         protected virtual void OnDetach() {
             _isAttached = false;
 
@@ -394,110 +371,94 @@ namespace ConformalDecals {
             Camera.onPreCull -= Render;
 
             UpdateMaterials();
-            UpdateScale();
+            UpdateProjection();
         }
 
-        protected void UpdateScale() {
-            scale = Mathf.Max(0.01f, scale);
-            depth = Mathf.Max(0.01f, depth);
-            var aspectRatio = materialProperties.AspectRatio;
-            Vector2 size;
+        // FUNCTIONS
 
-            switch (scaleMode) {
-                default:
-                case DecalScaleMode.HEIGHT:
-                    size = new Vector2(scale / aspectRatio, scale);
-                    break;
-                case DecalScaleMode.WIDTH:
-                    size = new Vector2(scale, scale * aspectRatio);
-                    break;
-                case DecalScaleMode.AVERAGE:
-                    var width1 = 2 * scale / (1 + aspectRatio);
-                    size = new Vector2(width1, width1 * aspectRatio);
-                    break;
-                case DecalScaleMode.AREA:
-                    var width2 = Mathf.Sqrt(scale / aspectRatio);
-                    size = new Vector2(width2, width2 * aspectRatio);
-                    break;
-                case DecalScaleMode.MINIMUM:
-                    if (aspectRatio > 1) goto case DecalScaleMode.WIDTH;
-                    else goto case DecalScaleMode.HEIGHT;
-                case DecalScaleMode.MAXIMUM:
-                    if (aspectRatio > 1) goto case DecalScaleMode.HEIGHT;
-                    else goto case DecalScaleMode.WIDTH;
-            }
+        /// Load any settings from the decal config
+        protected virtual void LoadDecal(ConfigNode node) {
+            // PARSE TRANSFORMS
+            decalFrontTransform = part.FindModelTransform(decalFront);
+            if (decalFrontTransform == null) throw new FormatException($"Could not find decalFront transform: '{decalFront}'.");
 
-            // update material scale
-            materialProperties.UpdateScale(size);
+            decalBackTransform = part.FindModelTransform(decalBack);
+            if (decalBackTransform == null) throw new FormatException($"Could not find decalBack transform: '{decalBack}'.");
 
-            if (_isAttached) {
-                // update orthogonal matrix
-                _orthoMatrix = Matrix4x4.identity;
-                _orthoMatrix[0, 3] = 0.5f;
-                _orthoMatrix[1, 3] = 0.5f;
+            decalModelTransform = part.FindModelTransform(decalModel);
+            if (decalModelTransform == null) throw new FormatException($"Could not find decalModel transform: '{decalModel}'.");
 
-                decalProjectorTransform.localScale = new Vector3(size.x, size.y, depth);
+            decalProjectorTransform = part.FindModelTransform(decalProjector);
+            if (decalProjectorTransform == null) throw new FormatException($"Could not find decalProjector transform: '{decalProjector}'.");
 
-                // update projection
-                foreach (var target in _targets) {
-                    target.Project(_orthoMatrix, decalProjectorTransform, _boundsRenderer.bounds, useBaseNormal);
+            decalColliderTransform = part.FindModelTransform(decalCollider);
+            if (decalColliderTransform == null) throw new FormatException($"Could not find decalCollider transform: '{decalCollider}'.");
+
+            // SETUP BACK MATERIAL
+            if (updateBackScale) {
+                var backRenderer = decalBackTransform.GetComponent<MeshRenderer>();
+                if (backRenderer == null) {
+                    this.LogError($"Specified decalBack transform {decalBack} has no renderer attached! Setting updateBackScale to false.");
+                    updateBackScale = false;
+                }
+                else {
+                    backMaterial = backRenderer.material;
+                    if (backMaterial == null) {
+                        this.LogError($"Specified decalBack transform {decalBack} has a renderer but no material! Setting updateBackScale to false.");
+                        updateBackScale = false;
+                    }
+                    else {
+                        if (backTextureBaseScale == default) backTextureBaseScale = backMaterial.GetTextureScale(PropertyIDs._MainTex);
+                    }
                 }
             }
+
+            // PARSE MATERIAL PROPERTIES
+            // set shader
+            materialProperties.SetShader(shader);
+            materialProperties.AddOrGetProperty<MaterialKeywordProperty>("DECAL_BASE_NORMAL").value = useBaseNormal;
+            materialProperties.Load(node);
+
+            // handle texture tiling parameters
+            var tileString = node.GetValue("tile");
+            if (!string.IsNullOrEmpty(tileString)) {
+                var tileValid = ParseExtensions.TryParseRect(tileString, out tileRect);
+                if (!tileValid) throw new FormatException($"Invalid rect value for tile '{tileString}'");
+            }
+
+            if (tileRect.x >= 0) {
+                materialProperties.UpdateTile(tileRect);
+            }
+            else if (tileIndex >= 0) {
+                materialProperties.UpdateTile(tileIndex, tileSize);
+            }
+        }
+
+        /// Setup decal by calling update functions relevent for the current situation
+        protected virtual void SetupDecal() {
+            if (HighLogic.LoadedSceneIsEditor) {
+                // Update tweakables in editor mode
+                UpdateTweakables();
+            }
+
+            if (HighLogic.LoadedSceneIsGame) {
+                UpdateAll();
+            }
             else {
-                // rescale preview model
-                decalModelTransform.localScale = new Vector3(size.x, size.y, (size.x + size.y) / 2);
+                scale = defaultScale;
+                depth = defaultDepth;
+                opacity = defaultOpacity;
+                cutoff = defaultCutoff;
+                wear = defaultWear;
 
-                // update back material scale
-                if (updateBackScale) {
-                    backMaterial.SetTextureScale(PropertyIDs._MainTex, new Vector2(size.x * backTextureBaseScale.x, size.y * backTextureBaseScale.y));
-                }
+                UpdateAll();
+
+                // QUEUE PART FOR ICON FIXING IN VAB
+                DecalIconFixer.QueuePart(part.name);
             }
         }
 
-        protected virtual void UpdateMaterials() {
-            materialProperties.UpdateMaterials();
-            materialProperties.SetOpacity(opacity);
-            materialProperties.SetCutoff(cutoff);
-            if (useBaseNormal) {
-                materialProperties.SetWear(wear);
-            }
-
-            _decalMaterial = materialProperties.DecalMaterial;
-            _previewMaterial = materialProperties.PreviewMaterial;
-
-            if (!_isAttached) decalFrontTransform.GetComponent<MeshRenderer>().material = _previewMaterial;
-        }
-
-        protected void UpdateTargets() {
-            if (_targets == null) {
-                _targets = new List<ProjectionTarget>();
-            }
-            else {
-                _targets.Clear();
-            }
-
-            // find all valid renderers
-            var renderers = part.parent.FindModelComponents<MeshRenderer>();
-            foreach (var renderer in renderers) {
-                // skip disabled renderers
-                if (renderer.gameObject.activeInHierarchy == false) continue;
-
-                // skip blacklisted shaders
-                if (DecalConfig.IsBlacklisted(renderer.material.shader)) continue;
-
-                var meshFilter = renderer.GetComponent<MeshFilter>();
-                if (meshFilter == null) continue; // object has a meshRenderer with no filter, invalid
-                var mesh = meshFilter.mesh;
-                if (mesh == null) continue; // object has a null mesh, invalid
-
-                // create new ProjectionTarget to represent the renderer
-                var target = new ProjectionTarget(renderer, mesh);
-
-                // add the target to the list
-                _targets.Add(target);
-            }
-        }
-
+        /// Update decal editor tweakables
         protected virtual void UpdateTweakables() {
             // setup tweakable fields
             var scaleField = Fields[nameof(scale)];
@@ -505,6 +466,7 @@ namespace ConformalDecals {
             var opacityField = Fields[nameof(opacity)];
             var cutoffField = Fields[nameof(cutoff)];
             var wearField = Fields[nameof(wear)];
+            var multiprojectField = Fields[nameof(projectMultiple)];
 
             scaleField.guiActiveEditor = scaleAdjustable;
             depthField.guiActiveEditor = depthAdjustable;
@@ -512,7 +474,7 @@ namespace ConformalDecals {
             cutoffField.guiActiveEditor = cutoffAdjustable;
             wearField.guiActiveEditor = useBaseNormal;
 
-            var steps = 40;
+            var steps = 20;
 
             if (scaleAdjustable) {
                 var minValue = Mathf.Max(Mathf.Epsilon, scaleRange.x);
@@ -521,8 +483,8 @@ namespace ConformalDecals {
                 var scaleEditor = (UI_FloatRange) scaleField.uiControlEditor;
                 scaleEditor.minValue = minValue;
                 scaleEditor.maxValue = maxValue;
-                scaleEditor.stepIncrement = (maxValue - minValue) / steps;
-                scaleEditor.onFieldChanged = OnSizeTweakEvent;
+                scaleEditor.stepIncrement = 0.01f; //1cm
+                scaleEditor.onFieldChanged = OnProjectionTweakEvent;
             }
 
             if (depthAdjustable) {
@@ -532,8 +494,8 @@ namespace ConformalDecals {
                 var depthEditor = (UI_FloatRange) depthField.uiControlEditor;
                 depthEditor.minValue = minValue;
                 depthEditor.maxValue = maxValue;
-                depthEditor.stepIncrement = (maxValue - minValue) / steps;
-                depthEditor.onFieldChanged = OnSizeTweakEvent;
+                depthEditor.stepIncrement = 0.01f; //1cm
+                depthEditor.onFieldChanged = OnProjectionTweakEvent;
             }
 
             if (opacityAdjustable) {
@@ -570,13 +532,144 @@ namespace ConformalDecals {
                 wearEditor.stepIncrement = (maxValue - minValue) / steps;
                 wearEditor.onFieldChanged = OnMaterialTweakEvent;
             }
+
+            var multiprojectEditor = (UI_Toggle) multiprojectField.uiControlEditor;
+            multiprojectEditor.onFieldChanged = OnProjectionTweakEvent;
         }
 
+        /// Updates textures, materials, scale and targets
+        protected virtual void UpdateAll() {
+            UpdateTextures();
+            UpdateMaterials();
+            UpdateProjection();
+            UpdateTargets();
+        }
+
+        /// Update decal textures
+        protected virtual void UpdateTextures() { }
+
+        /// Update decal materials
+        protected virtual void UpdateMaterials() {
+            materialProperties.UpdateMaterials();
+            materialProperties.SetOpacity(opacity);
+            materialProperties.SetCutoff(cutoff);
+            if (useBaseNormal) {
+                materialProperties.SetWear(wear);
+            }
+
+            _decalMaterial = materialProperties.DecalMaterial;
+            _previewMaterial = materialProperties.PreviewMaterial;
+
+            if (!_isAttached) decalFrontTransform.GetComponent<MeshRenderer>().material = _previewMaterial;
+        }
+
+        /// Update decal scale and projection
+        protected void UpdateProjection() {
+
+            // Update scale and depth
+            scale = Mathf.Max(0.01f, scale);
+            depth = Mathf.Max(0.01f, depth);
+            var aspectRatio = Mathf.Max(0.01f, materialProperties.AspectRatio);
+            Vector2 size;
+
+            switch (scaleMode) {
+                default:
+                case DecalScaleMode.HEIGHT:
+                    size = new Vector2(scale / aspectRatio, scale);
+                    break;
+                case DecalScaleMode.WIDTH:
+                    size = new Vector2(scale, scale * aspectRatio);
+                    break;
+                case DecalScaleMode.AVERAGE:
+                    var width1 = 2 * scale / (1 + aspectRatio);
+                    size = new Vector2(width1, width1 * aspectRatio);
+                    break;
+                case DecalScaleMode.AREA:
+                    var width2 = Mathf.Sqrt(scale / aspectRatio);
+                    size = new Vector2(width2, width2 * aspectRatio);
+                    break;
+                case DecalScaleMode.MINIMUM:
+                    if (aspectRatio > 1) goto case DecalScaleMode.WIDTH;
+                    else goto case DecalScaleMode.HEIGHT;
+                case DecalScaleMode.MAXIMUM:
+                    if (aspectRatio > 1) goto case DecalScaleMode.HEIGHT;
+                    else goto case DecalScaleMode.WIDTH;
+            }
+
+            // update material scale
+            materialProperties.UpdateScale(size);
+
+            if (_isAttached) {
+                // update orthogonal matrix
+                _orthoMatrix = Matrix4x4.identity;
+                _orthoMatrix[0, 3] = 0.5f;
+                _orthoMatrix[1, 3] = 0.5f;
+
+                decalProjectorTransform.localScale = new Vector3(size.x, size.y, depth);
+            }
+            else {
+                // rescale preview model
+                decalModelTransform.localScale = new Vector3(size.x, size.y, (size.x + size.y) / 2);
+
+                // update back material scale
+                if (updateBackScale) {
+                    backMaterial.SetTextureScale(PropertyIDs._MainTex, new Vector2(size.x * backTextureBaseScale.x, size.y * backTextureBaseScale.y));
+                }
+            }
+        }
+
+        /// Called when updating decal targets
+        protected void UpdateTargets() {
+            if (!_isAttached) return;
+            var projectionBounds = _boundsRenderer.bounds;
+
+            // disable all targets
+            foreach (var target in _targets.Values) {
+                target.enabled = false;
+            }
+
+            // collect list of potential targets
+            IEnumerable<Part> targetParts;
+            if (projectMultiple) {
+                targetParts = HighLogic.LoadedSceneIsFlight ? part.vessel.parts : EditorLogic.fetch.ship.parts;
+            }
+            else {
+                targetParts = new[] {part.parent};
+            }
+
+            foreach (var targetPart in targetParts) {
+                UpdatePartTarget(targetPart, projectionBounds);
+            }
+        }
+
+        protected void UpdatePartTarget(Part targetPart, Bounds projectionBounds) {
+            if (targetPart.GetComponent<ModuleConformalDecal>() != null) return; // skip other decals
+
+            this.Log($"Updating projection onto part {targetPart.name}");
+
+            if (!_targets.TryGetValue(targetPart, out var target)) {
+                var rendererList = targetPart.FindModelComponents<MeshRenderer>();
+
+                if (rendererList.Any(o => projectionBounds.Intersects(o.bounds))) {
+                    target = new ProjectionPartTarget(targetPart, useBaseNormal);
+                    _targets.Add(targetPart, target);
+                }
+                else {
+                    return;
+                }
+            }
+
+            this.Log($"valid target: {targetPart.name}");
+
+            target.Project(_orthoMatrix, decalProjectorTransform, projectionBounds);
+        }
+
+        /// Render the decal
         public void Render(Camera camera) {
             if (!_isAttached) return;
 
             // render on each target object
-            foreach (var target in _targets) {
+            foreach (var target in _targets.Values) {
                 target.Render(_decalMaterial, part.mpb, camera);
             }
         }

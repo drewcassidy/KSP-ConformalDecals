@@ -1,4 +1,5 @@
-using ConformalDecals.Util;
+using ConformalDecals.MaterialProperties;
+using UniLinq;
 using UnityEngine;
 
 namespace ConformalDecals {
@@ -8,6 +9,8 @@ namespace ConformalDecals {
         [KSPField(isPersistant = true)] public string flagUrl = DefaultFlag;
 
         [KSPField(isPersistant = true)] public bool useCustomFlag;
+
+        private MaterialTextureProperty _flagTextureProperty;
 
         public string MissionFlagUrl {
             get {
@@ -23,17 +26,6 @@ namespace ConformalDecals {
             }
         }
 
-        public override void OnLoad(ConfigNode node) {
-            base.OnLoad(node);
-
-            if (useCustomFlag) {
-                SetFlag(flagUrl);
-            }
-            else {
-                SetFlag(MissionFlagUrl);
-            }
-        }
-
         public override void OnStart(StartState state) {
             base.OnStart(state);
 
@@ -44,66 +36,60 @@ namespace ConformalDecals {
             if (HighLogic.LoadedSceneIsEditor) {
                 Events[nameof(ResetFlag)].guiActiveEditor = useCustomFlag;
             }
-
-            if (useCustomFlag) {
-                SetFlag(flagUrl);
-            }
-            else {
-                SetFlag(MissionFlagUrl);
-            }
         }
 
         public override void OnDestroy() {
-            GameEvents.onMissionFlagSelect.Remove(SetFlag);
+            GameEvents.onMissionFlagSelect.Remove(OnEditorFlagSelected);
             base.OnDestroy();
         }
 
         [KSPEvent(guiActive = false, guiActiveEditor = true, guiName = "#LOC_ConformalDecals_gui-select-flag")]
         public void SelectFlag() {
-            var flagBrowser = (Instantiate((Object) (new FlagBrowserGUIButton(null, null, null, null)).FlagBrowserPrefab) as GameObject).GetComponent<FlagBrowser>();
-            flagBrowser.OnFlagSelected = OnCustomFlagSelected;
+            var flagBrowser = (Instantiate((Object) (new FlagBrowserGUIButton(null, null, null, null)).FlagBrowserPrefab) as GameObject)?.GetComponent<FlagBrowser>();
+            if (flagBrowser is { }) flagBrowser.OnFlagSelected = OnCustomFlagSelected;
         }
 
         [KSPEvent(guiActive = false, guiActiveEditor = true, guiName = "#LOC_ConformalDecals_gui-reset-flag")]
         public void ResetFlag() {
-            SetFlag(MissionFlagUrl);
-            SetFlagSymmetryCounterparts(MissionFlagUrl);
-
-            useCustomFlag = false;
             Events[nameof(ResetFlag)].guiActiveEditor = false;
-        }
-
-        private void OnCustomFlagSelected(FlagBrowser.FlagEntry newFlagEntry) {
-            SetFlag(newFlagEntry.textureInfo.name);
-            SetFlagSymmetryCounterparts(newFlagEntry.textureInfo.name);
-
-            useCustomFlag = true;
-            Events[nameof(ResetFlag)].guiActiveEditor = true;
-        }
-
-        private void OnEditorFlagSelected(string newFlagUrl) {
-            if (!useCustomFlag) {
-                SetFlag(newFlagUrl);
-                SetFlagSymmetryCounterparts(newFlagUrl);
+            flagUrl = MissionFlagUrl;
+            useCustomFlag = false;
+            UpdateAll();
+            foreach (var decal in part.symmetryCounterparts.Select(o => o.GetComponent<ModuleConformalFlag>())) {
+                decal.Events[nameof(ResetFlag)].guiActiveEditor = false;
+                decal.flagUrl = flagUrl;
+                decal.useCustomFlag = false;
+                decal.UpdateAll();
             }
         }
 
-        private void SetFlag(string newFlagUrl) {
-            this.Log($"Loading flag texture '{newFlagUrl}'.");
+        private void OnCustomFlagSelected(FlagBrowser.FlagEntry newFlagEntry) {
+            Events[nameof(ResetFlag)].guiActiveEditor = true;
+            flagUrl = newFlagEntry.textureInfo.name;
+            useCustomFlag = true;
+            UpdateAll();
 
-            flagUrl = newFlagUrl;
-            materialProperties.AddOrGetTextureProperty("_Decal", true).TextureUrl = newFlagUrl;
-
-            UpdateMaterials();
-            UpdateScale();
+            foreach (var decal in part.symmetryCounterparts.Select(o => o.GetComponent<ModuleConformalFlag>())) {
+                decal.Events[nameof(ResetFlag)].guiActiveEditor = true;
+                decal.flagUrl = flagUrl;
+                decal.useCustomFlag = true;
+                decal.UpdateAll();
+            }
         }
 
-        private void SetFlagSymmetryCounterparts(string newFlagUrl) {
-            foreach (var counterpart in part.symmetryCounterparts) {
-                var decal = counterpart.GetComponent<ModuleConformalFlag>();
+        private void OnEditorFlagSelected(string newFlagUrl) {
+            if (!useCustomFlag) UpdateAll();
+        }
 
-                decal.SetFlag(newFlagUrl);
-                decal.useCustomFlag = useCustomFlag;
+        protected override void UpdateTextures() {
+            _flagTextureProperty ??= materialProperties.AddOrGetTextureProperty("_Decal", true);
+
+            base.UpdateTextures();
+            if (useCustomFlag) {
+                _flagTextureProperty.TextureUrl = flagUrl;
+            }
+            else {
+                _flagTextureProperty.TextureUrl = MissionFlagUrl;
             }
         }
     }

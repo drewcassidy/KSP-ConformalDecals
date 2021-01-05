@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using UniLinq;
 using UnityEngine;
 
 namespace ConformalDecals.Util {
@@ -30,9 +31,15 @@ namespace ConformalDecals.Util {
         }
 
         public static string ParseString(ConfigNode node, string valueName, bool isOptional = false, string defaultValue = "") {
-            if (!node.HasValue(valueName)) throw new FormatException($"Missing value for {valueName}");
+            if (node.HasValue(valueName)) return node.GetValue(valueName);
+            
+            if (isOptional) {
+                return defaultValue;
+            }
+            else {
+                throw new FormatException($"Missing value for {valueName}");
+            }
 
-            return node.GetValue(valueName);
         }
 
         public static bool ParseStringIndirect(ref string value, ConfigNode node, string valueName) {
@@ -68,6 +75,14 @@ namespace ConformalDecals.Util {
             return ParseValueIndirect(ref value, node, valueName, int.TryParse);
         }
 
+        public static uint ParseUint(ConfigNode node, string valueName, bool isOptional = false, uint defaultValue = 0) {
+            return ParseValue(node, valueName, uint.TryParse, isOptional, defaultValue);
+        }
+
+        public static bool ParseUintIndirect(ref uint value, ConfigNode node, string valueName) {
+            return ParseValueIndirect(ref value, node, valueName, uint.TryParse);
+        }
+
         public static Color32 ParseColor32(ConfigNode node, string valueName, bool isOptional = false, Color32 defaultValue = default) {
             return ParseValue(node, valueName, TryParseColor32, isOptional, defaultValue);
         }
@@ -98,6 +113,15 @@ namespace ConformalDecals.Util {
 
         public static bool ParseVector3Indirect(ref Vector3 value, ConfigNode node, string valueName) {
             return ParseValueIndirect(ref value, node, valueName, ParseExtensions.TryParseVector3);
+        }
+
+        public static Matrix4x4 ParseMatrix4x4(ConfigNode node, string valueName, bool isOptional = false, Matrix4x4 defaultValue = default) {
+            return ParseValue(node, valueName, ParseUtil.TryParseMatrix4x4, isOptional, defaultValue);
+        }
+
+        public static bool ParseMatrix4x4Indirect(ref Matrix4x4 value, ConfigNode node, string valueName) {
+            return ParseValueIndirect(ref value, node, valueName, ParseUtil.TryParseMatrix4x4);
+
         }
 
         public static T ParseValue<T>(ConfigNode node, string valueName, TryParseDelegate<T> tryParse, bool isOptional = false, T defaultValue = default) {
@@ -137,6 +161,26 @@ namespace ConformalDecals.Util {
             }
 
             throw new FormatException($"Improperly formatted {typeof(T)} value for {valueName} : '{valueString}");
+        }
+
+        public static bool TryParseMatrix4x4(string valueString, out Matrix4x4 value) {
+            value = new Matrix4x4();
+
+            var split = valueString.Split(Separator, StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < split.Length; i++) {
+                split[i] = split[i].Trim();
+            }
+
+            if (split.Length != 16) return false;
+            int index = 0;
+            for (int row = 0; row < 4; row++) {
+                for (int col = 0; col < 4; col++) {
+                    if (!float.TryParse(split[index], out float component)) return false;
+                    value[row, col] = component;
+                }
+            }
+
+            return true;
         }
 
         public static bool TryParseHexColor(string valueString, out Color32 value) {

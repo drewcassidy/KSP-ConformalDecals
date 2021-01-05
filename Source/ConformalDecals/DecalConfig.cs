@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using ConformalDecals.Text;
 using ConformalDecals.Util;
 using TMPro;
-using UniLinq;
 using UnityEngine;
 
 namespace ConformalDecals {
@@ -50,8 +49,6 @@ namespace ConformalDecals {
         public static bool SelectableInFlight => _selectableInFlight;
 
         public static IEnumerable<DecalFont> Fonts => _fontList.Values;
-        
-        public static DecalFont FallbackFont { get; private set; }
 
         public static bool IsBlacklisted(Shader shader) {
             return IsBlacklisted(shader.name);
@@ -92,12 +89,12 @@ namespace ConformalDecals {
                     _shaderBlacklist.Add(shaderName);
                 }
             }
-            
+
             var allFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
-            
+
             foreach (var fontNode in node.GetNodes("FONT")) {
                 try {
-                    var font = new DecalFont(fontNode, allFonts);
+                    var font = DecalFont.Parse(fontNode, allFonts);
                     _fontList.Add(font.Name, font);
                 }
                 catch (Exception e) {
@@ -114,12 +111,8 @@ namespace ConformalDecals {
             var colors = new[] {color, color, color, color};
 
             var tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
-            for (var x = 0; x <= width; x++) {
-                for (var y = 0; y < height; y++) {
-                    tex.SetPixels32(colors);
-                }
-            }
 
+            tex.SetPixels32(colors);
             tex.Apply();
 
             return tex;
@@ -133,7 +126,7 @@ namespace ConformalDecals {
             var configs = GameDatabase.Instance.GetConfigs("CONFORMALDECALS");
 
             if (configs.Length > 0) {
-                Logging.Log("loading config");
+                Logging.Log("Loading config");
                 foreach (var config in configs) {
                     ParseConfig(config.config);
                 }

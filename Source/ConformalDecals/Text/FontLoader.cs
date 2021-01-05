@@ -1,6 +1,5 @@
 using System.IO;
 using System.Collections;
-using System.Collections.Generic;
 using ConformalDecals.Util;
 using TMPro;
 using UniLinq;

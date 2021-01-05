@@ -95,7 +95,7 @@ namespace ConformalDecals.MaterialProperties {
                 var property = MaterialProperty.Instantiate(_serializedProperties[i]);
                 _materialProperties.Add(_serializedNames[i], property);
 
-                if (property is MaterialTextureProperty textureProperty && textureProperty.isMain) {
+                if (property is MaterialTextureProperty {isMain: true} textureProperty) {
                     _mainTexture = textureProperty;
                 }
             }
@@ -103,6 +103,28 @@ namespace ConformalDecals.MaterialProperties {
 
         public void Awake() {
             _materialProperties ??= new Dictionary<string, MaterialProperty>();
+        }
+
+        public void Load(ConfigNode node) {
+            // add keyword nodes
+            foreach (var keywordNode in node.GetNodes("KEYWORD")) {
+                ParseProperty<MaterialKeywordProperty>(keywordNode);
+            }
+
+            // add texture nodes
+            foreach (var textureNode in node.GetNodes("TEXTURE")) {
+                ParseProperty<MaterialTextureProperty>(textureNode);
+            }
+
+            // add float nodes
+            foreach (var floatNode in node.GetNodes("FLOAT")) {
+                ParseProperty<MaterialTextureProperty>(floatNode);
+            }
+
+            // add color nodes
+            foreach (var colorNode in node.GetNodes("COLOR")) {
+                ParseProperty<MaterialColorProperty>(colorNode);
+            }
         }
 
         public void OnDestroy() {
@@ -192,7 +214,7 @@ namespace ConformalDecals.MaterialProperties {
             var newProperty = AddOrGetProperty<T>(propertyName);
             newProperty.ParseNode(node);
 
-            if (newProperty is MaterialTextureProperty textureProperty && textureProperty.isMain) {
+            if (newProperty is MaterialTextureProperty {isMain: true} textureProperty) {
                 _mainTexture = textureProperty;
             }
 
@@ -230,7 +252,7 @@ namespace ConformalDecals.MaterialProperties {
 
         public void UpdateScale(Vector2 scale) {
             foreach (var entry in _materialProperties) {
-                if (entry.Value is MaterialTextureProperty textureProperty && textureProperty.autoScale) {
+                if (entry.Value is MaterialTextureProperty {autoScale: true} textureProperty) {
                     textureProperty.SetScale(scale);
                 }
             }
@@ -241,7 +263,7 @@ namespace ConformalDecals.MaterialProperties {
             var mainTexSize = _mainTexture.Dimensions;
 
             foreach (var entry in _materialProperties) {
-                if (entry.Value is MaterialTextureProperty textureProperty && textureProperty.autoTile) {
+                if (entry.Value is MaterialTextureProperty {autoTile: true} textureProperty) {
                     textureProperty.SetTile(tile, mainTexSize);
                 }
             }
