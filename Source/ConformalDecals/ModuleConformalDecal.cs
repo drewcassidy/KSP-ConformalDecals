@@ -184,6 +184,7 @@ namespace ConformalDecals {
         /// This is mostly used to make sure all B9 variants are already in place for the rest of the vessel
         public override void OnStartFinished(StartState state) {
             // handle game events
+            UpdateTextures();
             if (HighLogic.LoadedSceneIsGame) {
                 // set initial attachment state
                 if (part.parent == null) {
