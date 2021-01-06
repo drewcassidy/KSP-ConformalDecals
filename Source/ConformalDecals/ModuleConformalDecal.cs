@@ -277,7 +277,7 @@ namespace ConformalDecals {
 
         /// Called when a part is transformed in the editor
         protected void OnPartTransformed(Part eventPart) {
-            if (this.part == eventPart) {
+            if (part == eventPart || part.symmetryCounterparts.Contains(eventPart)) {
                 UpdateProjection();
             }
             else if (_isAttached && projectMultiple) {
@@ -291,7 +291,7 @@ namespace ConformalDecals {
 
         /// Called when a part is attached in the editor
         protected void OnPartAttached(Part eventPart) {
-            if (this.part == eventPart) {
+            if (part == eventPart || part.symmetryCounterparts.Contains(eventPart)) {
                 OnAttach();
             }
             else if (_isAttached && projectMultiple) {
@@ -305,7 +305,7 @@ namespace ConformalDecals {
 
         /// Called when a part is detached in the editor
         protected void OnPartDetached(Part eventPart) {
-            if (this.part == eventPart) {
+            if (part == eventPart || part.symmetryCounterparts.Contains(eventPart)) {
                 OnDetach();
             }
             else if (_isAttached && projectMultiple) {
