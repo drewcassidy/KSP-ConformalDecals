@@ -1,5 +1,5 @@
-# Conformal Decals v0.2.7
-[![Build Status](https://travis-ci.com/drewcassidy/KSP-Conformal-Decals.svg?branch=release)](https://travis-ci.com/drewcassidy/KSP-Conformal-Decals) [![Art: CC BY-SA 4.0](https://img.shields.io/badge/Art%20License-CC%20BY--SA%204.0-orange.svg)](https://creativecommons.org/licenses/by-sa/4.0/) [![Code: GPL v3](https://img.shields.io/badge/Code%20License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) 
+# Conformal Decals
+[![Art: CC BY-SA 4.0](https://img.shields.io/badge/Art%20License-CC%20BY--SA%204.0-orange.svg)](https://creativecommons.org/licenses/by-sa/4.0/) [![Code: GPL v3](https://img.shields.io/badge/Code%20License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) 
 
 ![Screenshot](http://pileof.rocks/KSP/images/ConformalDecalsHeader.png)
 
@@ -9,9 +9,10 @@ Conformal Decals adds a set of decal stickers to KSP, as well as providing a fra
 
 Required:
 - KSP (1.8.x to 1.10.x)
-- B9 Part Switch (2.16.0). Bundled with release.
+- B9 Part Switch (2.18.0). Bundled with release.
 - ModuleManager (4.1.4). Bundled with release.
-- Shabby (0.1.2). Bundled with release.
+- Shabby (0.2.0 unofficial build). Bundled with release.
+- HarmonyKSP (2.0.4.0). Bundled with release.
 
 Optional:
 - Wild Blue Tools. For custom decals category in the VAB and SPH.

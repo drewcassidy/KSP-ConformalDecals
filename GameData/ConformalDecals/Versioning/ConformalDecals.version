@@ -1,28 +1,24 @@
 {
-    "NAME":"ConformalDecals",
-    "URL":"https://raw.githubusercontent.com/drewcassidy/KSP-Conformal-Decals/release/GameData/ConformalDecals/Versioning/ConformalDecals.version",
-    "DOWNLOAD":"https://github.com/drewcassidy/KSP-Conformal-Decals/releases",
-    "VERSION":
-    {
-        "MAJOR":0,
-        "MINOR":2,
-        "PATCH":7,
-        "BUILD":0
+    "NAME": "ConformalDecals",
+    "URL": "https://github.com/drewcassidy/KSP-Conformal-Decals/releases/latest/download/ConformalDecals.version",
+    "DOWNLOAD": "https://github.com/drewcassidy/KSP-Conformal-Decals/releases/latest",
+    "CHANGE_LOG_URL": "https://raw.githubusercontent.com/drewcassidy/KSP-Conformal-Decals/release/CHANGELOG.md",
+    "VERSION": {
+        "MAJOR": 9,
+        "MINOR": 9,
+        "PATCH": 9,
+        "BUILD": 100000
     },
-    "KSP_VERSION":
-    {
-        "MAJOR":1,
-        "MINOR":11,
-        "PATCH":0
+    "KSP_VERSION": {
+        "MAJOR": 1,
+        "MINOR": 12
     },
-    "KSP_VERSION_MIN":{
-        "MAJOR":1,
-        "MINOR":8,
-        "PATCH":0
+    "KSP_VERSION_MIN": {
+        "MAJOR": 1,
+        "MINOR": 8
     },
-    "KSP_VERSION_MAX":{
-        "MAJOR":1,
-        "MINOR":11,
-        "PATCH":99
+    "KSP_VERSION_MAX": {
+        "MAJOR": 1,
+        "MINOR": 12
     }
 }

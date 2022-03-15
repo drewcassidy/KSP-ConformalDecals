@@ -16,6 +16,9 @@ Temp/
 GameData/ConformalDecals/Resources/Resources
 GameData/ConformalDecals/Resources/*.manifest
 
+# DLLs
+GameData/ConformalDecals/Plugins
+
 # Unity Project Files
 PartTools.cfg
 *.meta
@@ -52,4 +55,4 @@ Source/ConformalDecals/bin
 .vs
 obj
 *.swp
-Source/.editorconfig
+@thumbs

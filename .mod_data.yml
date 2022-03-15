@@ -16,11 +16,15 @@ dependencies:  # Configure dependencies
     zip: false
   B9PartSwitch:
     location: url
-    url: http://pileof.rocks/KSP/B9PartSwitch-v2.16.0.zip
+    url: http://pileof.rocks/KSP/B9PartSwitch-v2.18.0.zip
     zip: true
   Shabby:
     location: url
-    url: http://taniwha.org/~bill/Shabby_v0.1.2.zip
+    url: http://pileof.rocks/KSP/Shabby_v0.2.0.zip
+    zip: true
+  HarmonyKSP:
+    location: url
+    url: https://github.com/KSPModdingLibs/HarmonyKSP/releases/download/2.0.4.0/HarmonyKSP_2.0.4.0_for_KSP1.8+.zip
     zip: true
 deploy:
   SpaceDock:

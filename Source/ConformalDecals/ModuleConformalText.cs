@@ -281,6 +281,9 @@ namespace ConformalDecals {
             // Render text
             var newText = new DecalText(text, font, style, vertical, lineSpacing, charSpacing);
             var output = TextRenderer.UpdateText(_currentText, newText);
+            
+            // update the _currentText state variable
+            // this is the ONLY place this variable should be set! otherwise the current state is lost
             _currentText = newText;
 
             _decalTextureProperty.Texture = output.Texture;

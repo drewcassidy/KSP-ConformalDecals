@@ -1,0 +1,23 @@
+name: Fast-Forward Release Branch
+on:
+  release:
+    types: [created]
+
+jobs:
+  fast-forward:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: release
+          fetch-depth: 0
+
+      - name: Merge into Release
+        run: git merge ${{github.ref_name}} --ff-only
+
+      - name: Push Changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release
