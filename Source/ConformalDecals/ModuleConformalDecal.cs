@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using ConformalDecals.MaterialProperties;
+using ConformalDecals.Targets;
 using ConformalDecals.Util;
 using UniLinq;
 using UnityEngine;

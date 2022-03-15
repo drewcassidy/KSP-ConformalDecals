@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using UniLinq;
 using UnityEngine;
 
 namespace ConformalDecals.Util {
@@ -32,7 +31,7 @@ namespace ConformalDecals.Util {
 
         public static string ParseString(ConfigNode node, string valueName, bool isOptional = false, string defaultValue = "") {
             if (node.HasValue(valueName)) return node.GetValue(valueName);
-            
+
             if (isOptional) {
                 return defaultValue;
             }
@@ -121,7 +120,6 @@ namespace ConformalDecals.Util {
 
         public static bool ParseMatrix4x4Indirect(ref Matrix4x4 value, ConfigNode node, string valueName) {
             return ParseValueIndirect(ref value, node, valueName, ParseUtil.TryParseMatrix4x4);
-
         }
 
         public static T ParseValue<T>(ConfigNode node, string valueName, TryParseDelegate<T> tryParse, bool isOptional = false, T defaultValue = default) {
