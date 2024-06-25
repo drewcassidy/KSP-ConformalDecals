@@ -55,7 +55,7 @@
             Blend SrcAlpha OneMinusSrcAlpha
 
             CGPROGRAM
-            #pragma vertex vert_forward
+            #pragma vertex vert
             #pragma fragment frag_forward
 
             #pragma multi_compile_fwdbase nolightmap nodirlightmap nodynlightmap
@@ -85,10 +85,41 @@
             Offset -1, -1
 
             CGPROGRAM
-            #pragma vertex vert_forward
+            #pragma vertex vert
             #pragma fragment frag_forward
 
             #pragma multi_compile_fwdadd nolightmap nodirlightmap nodynlightmap
+            #pragma skip_variants SHADOWS_DEPTH SHADOWS_CUBE SHADOWS_SHADOWMASK LIGHTMAP_SHADOW_MIXING POINT_COOKIE
+            #pragma multi_compile_local __ DECAL_PREVIEW
+            #pragma multi_compile_local __ DECAL_BASE_NORMAL DECAL_BUMPMAP
+            #pragma multi_compile_local __ DECAL_SPECMAP
+            #pragma multi_compile_local __ DECAL_EMISSIVE
+            #pragma multi_compile_local __ DECAL_SDF_ALPHA
+  
+            #include "UnityCG.cginc"
+            #include "DecalsCommon.cginc"
+            #include "DecalsSurface.cginc"
+            #include "SDF.cginc"
+            #include "StandardDecal.cginc"
+
+            ENDCG
+        } 
+
+                Pass
+        {
+            Name "DEFERRED"
+            Tags { "LightMode" = "Deferred" }
+            ZWrite Off
+            ZTest LEqual  
+            Blend SrcAlpha One
+            Offset -1, -1
+
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag_deferred
+            #pragma target 3.0
+
+            #pragma multi_compile_deferred nolightmap nodirlightmap nodynlightmap
             #pragma skip_variants SHADOWS_DEPTH SHADOWS_CUBE SHADOWS_SHADOWMASK LIGHTMAP_SHADOW_MIXING POINT_COOKIE
             #pragma multi_compile_local __ DECAL_PREVIEW
             #pragma multi_compile_local __ DECAL_BASE_NORMAL DECAL_BUMPMAP

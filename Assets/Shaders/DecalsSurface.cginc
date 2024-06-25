@@ -6,14 +6,14 @@
 
 // declare surf function, 
 // this must be defined in any shader using this cginc
-void surf (DecalSurfaceInput IN, inout SurfaceOutput o);
+void surf (DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o);
 
-v2f vert_forward(appdata_decal v)
+v2f vert(appdata_decal v, out float4 outpos : SV_POSITION)
 {
     v2f o;
     UNITY_INITIALIZE_OUTPUT(v2f,o);
     
-    o.pos = UnityObjectToClipPos(v.vertex);
+    outpos = UnityObjectToClipPos(v.vertex);
     o.normal = v.normal;
     
     #ifdef DECAL_PREVIEW
@@ -63,6 +63,14 @@ v2f vert_forward(appdata_decal v)
             unity_4LightAtten0, worldPosition, worldNormal );
         #endif // VERTEXLIGHT_ON
     #endif // UNITY_PASS_FORWARDBASE
+
+    #ifdef UNITY_PASS_DEFERRED
+        o.screenUV = v.vertex;
+
+        // Correct flip when rendering with a flipped projection matrix.
+        // (I've observed this differing between the Unity scene & game views)
+        o.screenUV.y *= _ProjectionParams.x;
+    #endif 
     
     // pass shadow and, possibly, light cookie coordinates to pixel shader
     UNITY_TRANSFER_LIGHTING(o, 0.0);
@@ -70,8 +78,7 @@ v2f vert_forward(appdata_decal v)
     return o;
 }
 
-fixed4 frag_forward(v2f IN) : SV_Target
-{
+void frag_common(v2f IN, float3 worldPosition, float3 viewDir, out SurfaceOutputStandardSpecular o) {
     #ifdef DECAL_PREVIEW
         fixed4 uv_projected = IN.uv_decal;
     #else
@@ -84,22 +91,6 @@ fixed4 frag_forward(v2f IN) : SV_Target
 
     // declare data
     DecalSurfaceInput i;
-    SurfaceOutput o;
-    
-    // setup world-space TBN vectors
-    UNITY_EXTRACT_TBN(IN);
-    
-    float3 worldPosition = float3(IN.tSpace0.w, IN.tSpace1.w, IN.tSpace2.w);
-    float3 worldTangent = float3(IN.tSpace0.x, IN.tSpace1.x, IN.tSpace2.x);
-    
-    // setup world-space light and view direction vectors
-    #ifndef USING_DIRECTIONAL_LIGHT
-        fixed3 lightDir = normalize(UnityWorldSpaceLightDir(worldPosition));
-    #else
-        fixed3 lightDir = _WorldSpaceLightPos0.xyz;
-    #endif
-    float3 worldViewDir = normalize(UnityWorldSpaceViewDir(worldPosition));
-    float3 viewDir = _unity_tbn_0 * worldViewDir.x + _unity_tbn_1 * worldViewDir.y  + _unity_tbn_2 * worldViewDir.z;
     
     // initialize surface input
     UNITY_INITIALIZE_OUTPUT(DecalSurfaceInput, i)
@@ -135,7 +126,7 @@ fixed4 frag_forward(v2f IN) : SV_Target
     o.Emission = 0.0;
     o.Specular = 0.0;
     o.Alpha = 0.0;
-    o.Gloss = 0.0;
+    o.Smoothness = 0.0;
     o.Normal = fixed3(0,0,1);
     
     // call surface function
@@ -150,9 +141,30 @@ fixed4 frag_forward(v2f IN) : SV_Target
         o.Emission = lerp(0, o.Emission, o.Alpha);
         o.Alpha = _Opacity;
     #endif //DECAL_PREVIEW 
+}
+
+fixed4 frag_forward(v2f IN) : SV_Target
+{
+    // setup world-space TBN vectors
+    UNITY_EXTRACT_TBN(IN);
+
+    SurfaceOutputStandardSpecular o;
+    float3 worldPosition = float3(IN.tSpace0.w, IN.tSpace1.w, IN.tSpace2.w);
+    float3 worldTangent = float3(IN.tSpace0.x, IN.tSpace1.x, IN.tSpace2.x);
+    float3 worldViewDir = normalize(UnityWorldSpaceViewDir(worldPosition));
+    float3 viewDir = _unity_tbn_0 * worldViewDir.x + _unity_tbn_1 * worldViewDir.y  + _unity_tbn_2 * worldViewDir.z;
     
+    frag_common(IN, worldPosition, viewDir, o);
+
     // compute lighting & shadowing factor
     UNITY_LIGHT_ATTENUATION(atten, IN, worldPosition)
+
+    // setup world-space light and view direction vectors
+    #ifndef USING_DIRECTIONAL_LIGHT
+        fixed3 lightDir = normalize(UnityWorldSpaceLightDir(worldPosition));
+    #else
+        fixed3 lightDir = _WorldSpaceLightPos0.xyz;
+    #endif
     
     // compute world normal
     float3 WorldNormal;
@@ -180,4 +192,48 @@ fixed4 frag_forward(v2f IN) : SV_Target
     return c;
 }
 
+
+#ifdef UNITY_PASS_DEFERRED
+void frag_deferred (v2f IN,
+    UNITY_VPOS_TYPE uv : VPOS,
+    out half4 outGBuffer0 : SV_Target0,
+    out half4 outGBuffer1 : SV_Target1,
+    out half4 outGBuffer2 : SV_Target2,
+    out half4 outEmission : SV_Target3
+#if defined(SHADOWS_SHADOWMASK) && (UNITY_ALLOWED_MRT_COUNT > 4)
+    , out half4 outShadowMask : SV_Target4
+#endif
+    ) 
+{
+
+    // float2 uv = (IN.screenUV.xy / IN.screenUV.w) * 0.5f + 0.5f;
+    half4 inGBuffer0 = tex2D (_CameraGBufferTexture0, uv); // Diffuse RGB, Occlusion A
+    half4 inGBuffer1 = tex2D (_CameraGBufferTexture1, uv); // Specular RGB, Smoothness A
+    half4 inGBuffer2 = tex2D (_CameraGBufferTexture2, uv); // Normal RGB
+
+    // setup world-space TBN vectors
+    UNITY_EXTRACT_TBN(IN);
+
+    SurfaceOutputStandardSpecular o;
+    float3 worldPosition = float3(IN.tSpace0.w, IN.tSpace1.w, IN.tSpace2.w);
+    float3 worldTangent = float3(IN.tSpace0.x, IN.tSpace1.x, IN.tSpace2.x);
+    float3 worldViewDir = normalize(UnityWorldSpaceViewDir(worldPosition));
+    float3 viewDir = _unity_tbn_0 * worldViewDir.x + _unity_tbn_1 * worldViewDir.y  + _unity_tbn_2 * worldViewDir.z;
+    
+    frag_common(IN, worldPosition, viewDir, o);
+
+    // compute world normal
+    float3 WorldNormal;
+    WorldNormal.x = dot(_unity_tbn_0, o.Normal);
+    WorldNormal.y = dot(_unity_tbn_1, o.Normal);
+    WorldNormal.z = dot(_unity_tbn_2, o.Normal);
+    WorldNormal = normalize(WorldNormal);
+    o.Normal = WorldNormal;
+
+    KSPLightingStandardSpecular_Deferred(o, outGBuffer0, outGBuffer1, outGBuffer2, outEmission);
+    outGBuffer0 = lerp(inGBuffer0, outGBuffer0, o.Alpha);
+    outGBuffer1 = lerp(inGBuffer1, outGBuffer1, o.Alpha);
+    outGBuffer2 = lerp(inGBuffer2, outGBuffer2, o.Alpha);
+}
+#endif
 #endif

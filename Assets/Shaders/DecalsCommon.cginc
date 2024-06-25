@@ -1,4 +1,6 @@
 #ifndef DECALS_COMMON_INCLUDED
+// Upgrade NOTE: excluded shader from DX11; has structs without semantics (struct v2f members screenUV)
+#pragma exclude_renderers d3d11
 #define DECALS_COMMON_INCLUDED
 
 #include "AutoLight.cginc"
@@ -46,6 +48,12 @@ float4 _Decal_ST;
     float4 _Emissive_ST;
     fixed4 _Emissive_Color;
 #endif //DECAL_EMISSIVE
+
+#ifdef UNITY_PASS_DEFERRED
+    sampler2D _CameraGBufferTexture0;
+    sampler2D _CameraGBufferTexture1;
+    sampler2D _CameraGBufferTexture2;
+#endif
 
 // KSP EFFECTS
 // opacity and color
@@ -104,7 +112,7 @@ struct appdata_decal
 
 struct v2f
 {
-    UNITY_POSITION(pos);
+    // UNITY_POSITION(pos);
     float3 normal : NORMAL;
     float4 uv_decal : TEXCOORD0;
     
@@ -124,6 +132,10 @@ struct v2f
     #ifdef UNITY_PASS_FORWARDADD
         UNITY_LIGHTING_COORDS(5,6)
     #endif //UNITY_PASS_FORWARDADD
+
+    #ifdef UNITY_PASS_DEFERRED
+        float4 screenUV : TEXCOORD5;
+    #endif
 };
 
 

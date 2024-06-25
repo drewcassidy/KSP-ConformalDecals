@@ -56,7 +56,7 @@
             Blend SrcAlpha OneMinusSrcAlpha
 
             CGPROGRAM
-            #pragma vertex vert_forward
+            #pragma vertex vert
             #pragma fragment frag_forward
 
             #pragma multi_compile_fwdbase nolightmap nodirlightmap nodynlightmap
@@ -86,7 +86,7 @@
             Offset -1, -1
 
             CGPROGRAM
-            #pragma vertex vert_forward
+            #pragma vertex vert
             #pragma fragment frag_forward
 
             #pragma multi_compile_fwdadd nolightmap nodirlightmap nodynlightmap
