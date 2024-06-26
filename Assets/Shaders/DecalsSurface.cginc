@@ -8,12 +8,12 @@
 // this must be defined in any shader using this cginc
 void surf (DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o);
 
-v2f vert(appdata_decal v, out float4 outpos : SV_POSITION)
+v2f vert(appdata_decal v)
 {
     v2f o;
     UNITY_INITIALIZE_OUTPUT(v2f,o);
     
-    outpos = UnityObjectToClipPos(v.vertex);
+    o.pos = UnityObjectToClipPos(v.vertex);
     o.normal = v.normal;
     
     #ifdef DECAL_PREVIEW
@@ -64,17 +64,16 @@ v2f vert(appdata_decal v, out float4 outpos : SV_POSITION)
         #endif // VERTEXLIGHT_ON
     #endif // UNITY_PASS_FORWARDBASE
 
+    // pass shadow and, possibly, light cookie coordinates to pixel shader
+    UNITY_TRANSFER_LIGHTING(o, 0.0);
+
     #ifdef UNITY_PASS_DEFERRED
-        o.screenUV = v.vertex;
+        o.screenUV = o.pos.xyw;
 
         // Correct flip when rendering with a flipped projection matrix.
         // (I've observed this differing between the Unity scene & game views)
         o.screenUV.y *= _ProjectionParams.x;
-    #endif 
-    
-    // pass shadow and, possibly, light cookie coordinates to pixel shader
-    UNITY_TRANSFER_LIGHTING(o, 0.0);
-    
+    #endif
     return o;
 }
 
@@ -137,7 +136,7 @@ void frag_common(v2f IN, float3 worldPosition, float3 viewDir, out SurfaceOutput
 
         o.Albedo = lerp(_Background.rgb, o.Albedo, o.Alpha) * _Color.rgb;
         o.Normal = lerp(float3(0,0,1), o.Normal, o.Alpha);
-        o.Gloss = lerp(_Background.a, o.Gloss, o.Alpha);
+        o.Specular = lerp(_Background.a, o.Specular, o.Alpha);
         o.Emission = lerp(0, o.Emission, o.Alpha);
         o.Alpha = _Opacity;
     #endif //DECAL_PREVIEW 
@@ -195,24 +194,21 @@ fixed4 frag_forward(v2f IN) : SV_Target
 
 #ifdef UNITY_PASS_DEFERRED
 void frag_deferred (v2f IN,
-    UNITY_VPOS_TYPE uv : VPOS,
     out half4 outGBuffer0 : SV_Target0,
     out half4 outGBuffer1 : SV_Target1,
-    out half4 outGBuffer2 : SV_Target2,
-    out half4 outEmission : SV_Target3
-#if defined(SHADOWS_SHADOWMASK) && (UNITY_ALLOWED_MRT_COUNT > 4)
-    , out half4 outShadowMask : SV_Target4
-#endif
-    ) 
+    #if defined(DECAL_BUMPMAP) || defined(DECAL_PREVIEW)
+        out half4 outGBuffer2 : SV_Target2,
+    #endif
+    out half4 outEmission : SV_Target3) 
 {
+    #if !(defined(DECAL_BUMPMAP) || defined(DECAL_PREVIEW))
+        half4 outGBuffer2 = 0; // define dummy normal buffer when we're not writing to it
+    #endif
 
-    // float2 uv = (IN.screenUV.xy / IN.screenUV.w) * 0.5f + 0.5f;
-    half4 inGBuffer0 = tex2D (_CameraGBufferTexture0, uv); // Diffuse RGB, Occlusion A
-    half4 inGBuffer1 = tex2D (_CameraGBufferTexture1, uv); // Specular RGB, Smoothness A
-    half4 inGBuffer2 = tex2D (_CameraGBufferTexture2, uv); // Normal RGB
 
     // setup world-space TBN vectors
     UNITY_EXTRACT_TBN(IN);
+
 
     SurfaceOutputStandardSpecular o;
     float3 worldPosition = float3(IN.tSpace0.w, IN.tSpace1.w, IN.tSpace2.w);
@@ -222,6 +218,7 @@ void frag_deferred (v2f IN,
     
     frag_common(IN, worldPosition, viewDir, o);
 
+    #if defined(DECAL_BUMPMAP) || defined(DECAL_PREVIEW)
     // compute world normal
     float3 WorldNormal;
     WorldNormal.x = dot(_unity_tbn_0, o.Normal);
@@ -229,11 +226,30 @@ void frag_deferred (v2f IN,
     WorldNormal.z = dot(_unity_tbn_2, o.Normal);
     WorldNormal = normalize(WorldNormal);
     o.Normal = WorldNormal;
+    #endif
 
     KSPLightingStandardSpecular_Deferred(o, outGBuffer0, outGBuffer1, outGBuffer2, outEmission);
-    outGBuffer0 = lerp(inGBuffer0, outGBuffer0, o.Alpha);
-    outGBuffer1 = lerp(inGBuffer1, outGBuffer1, o.Alpha);
-    outGBuffer2 = lerp(inGBuffer2, outGBuffer2, o.Alpha);
+    outGBuffer0.a = o.Alpha;
+    outGBuffer1 *= o.Alpha;
+    outGBuffer2.a = o.Alpha;
+    outEmission.a = o.Alpha;
 }
+
+void frag_deferred_prepass(v2f IN, out half4 outGBuffer1: SV_Target1) {
+    // setup world-space TBN vectors
+    UNITY_EXTRACT_TBN(IN);
+
+
+    SurfaceOutputStandardSpecular o;
+    float3 worldPosition = float3(IN.tSpace0.w, IN.tSpace1.w, IN.tSpace2.w);
+    float3 worldTangent = float3(IN.tSpace0.x, IN.tSpace1.x, IN.tSpace2.x);
+    float3 worldViewDir = normalize(UnityWorldSpaceViewDir(worldPosition));
+    float3 viewDir = _unity_tbn_0 * worldViewDir.x + _unity_tbn_1 * worldViewDir.y  + _unity_tbn_2 * worldViewDir.z;
+    
+    frag_common(IN, worldPosition, viewDir, o);
+
+    outGBuffer1 = o.Alpha;
+}
+
 #endif
 #endif

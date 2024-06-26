@@ -40,20 +40,16 @@ float4 _Decal_ST;
     sampler2D _SpecMap;
     float4 _SpecMap_ST;
     // specular color is declared in a unity CGINC for some reason??
-    fixed _Shininess;
 #endif //DECAL_SPECMAP
+
+fixed _Shininess;
+
 
 #ifdef DECAL_EMISSIVE
     sampler2D _Emissive;
     float4 _Emissive_ST;
     fixed4 _Emissive_Color;
 #endif //DECAL_EMISSIVE
-
-#ifdef UNITY_PASS_DEFERRED
-    sampler2D _CameraGBufferTexture0;
-    sampler2D _CameraGBufferTexture1;
-    sampler2D _CameraGBufferTexture2;
-#endif
 
 // KSP EFFECTS
 // opacity and color
@@ -112,7 +108,7 @@ struct appdata_decal
 
 struct v2f
 {
-    // UNITY_POSITION(pos);
+    UNITY_POSITION(pos);
     float3 normal : NORMAL;
     float4 uv_decal : TEXCOORD0;
     
@@ -134,7 +130,7 @@ struct v2f
     #endif //UNITY_PASS_FORWARDADD
 
     #ifdef UNITY_PASS_DEFERRED
-        float4 screenUV : TEXCOORD5;
+        float3 screenUV : TEXCOORD5;
     #endif
 };
 

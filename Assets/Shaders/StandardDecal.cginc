@@ -1,5 +1,6 @@
 void surf(DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o) {
     float4 color = tex2D(_Decal, IN.uv_decal);
+    o.Specular = 0.4;
     o.Albedo = UnderwaterFog(IN.worldPosition, color).rgb;
     o.Alpha =  _DecalOpacity;
     o.Occlusion = 1;
@@ -12,14 +13,15 @@ void surf(DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o) {
     #endif
 
     #ifdef DECAL_BUMPMAP
-        o.Normal = tex2D(_BumpMap, IN.uv_bumpmap);
+        o.Normal = UnpackNormalDXT5nm(tex2D(_BumpMap, IN.uv_bumpmap));
     #endif
 
     #ifdef DECAL_SPECMAP
         float4 specular = tex2D(_SpecMap, IN.uv_specmap);
-        o.Smoothness = _Shininess;
         o.Specular = specular
     #endif
+
+    o.Smoothness = _Shininess;
 
     half rim = 1.0 - saturate(dot(normalize(IN.viewDir), o.Normal));
     o.Emission = (_RimColor.rgb * pow(rim, _RimFalloff)) * _RimColor.a;

@@ -6,6 +6,7 @@ float _OutlineWidth;
 void surf(DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o) {
     float4 color = _DecalColor;
     float dist = _Cutoff - tex2D(_Decal, IN.uv_decal).r; // text distance
+    o.Specular = 0.4;
     o.Occlusion = 1;
     
     #ifdef DECAL_OUTLINE
@@ -41,9 +42,10 @@ void surf(DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o) {
 
     #ifdef DECAL_SPECMAP
         float4 specular = tex2D(_SpecMap, IN.uv_specmap);
-        o.Smoothness = _Shininess;
         o.Specular = specular;
     #endif
+
+    o.Smoothness = _Shininess;
 
     half rim = 1.0 - saturate(dot(normalize(IN.viewDir), o.Normal));
     o.Emission = (_RimColor.rgb * pow(rim, _RimFalloff)) * _RimColor.a;

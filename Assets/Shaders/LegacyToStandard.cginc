@@ -1,7 +1,7 @@
 // Taken from https://github.com/LGhassen/Deferred
 
 //TODO: remove this debug settings
-float blinnPhongShininessPower;
+float blinnPhongShininessPower = 0.215f;
 
 // An exact conversion from blinn-phong to PBR is impossible, but the look can be approximated perceptually
 // and by observing how blinn-phong looks and feels at various settings, although it can never be perfect
@@ -18,7 +18,7 @@ void GetStandardSpecularPropertiesFromLegacy(float legacyShininess, float specul
 {
     legacySpecularColor = saturate(legacySpecularColor);
     
-    smoothness = pow(legacyShininess, blinnPhongShininessPower) * specularMap;
+    smoothness = pow(legacyShininess, 0.215) * specularMap;
     smoothness *= sqrt(length(legacySpecularColor));
 
     specular = legacySpecularColor * (1 / UNITY_PI);
