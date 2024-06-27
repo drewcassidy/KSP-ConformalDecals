@@ -45,6 +45,7 @@ namespace ConformalDecals.MaterialProperties {
                     _decalMaterial.SetInt(DecalPropertyIDs._Cull, (int) CullMode.Off);
                     _decalMaterial.SetInt(DecalPropertyIDs._ZWrite, 0);
                     _decalMaterial.renderQueue = RenderQueue;
+                    _decalMaterial.SetShaderPassEnabled("SHADOWCASTER", false);
                 }
 
                 return _decalMaterial;
@@ -59,6 +60,7 @@ namespace ConformalDecals.MaterialProperties {
                     _previewMaterial.EnableKeyword("DECAL_PREVIEW");
                     _previewMaterial.SetInt(DecalPropertyIDs._Cull, (int) CullMode.Back);
                     _previewMaterial.SetInt(DecalPropertyIDs._ZWrite, 1);
+                    _previewMaterial.SetShaderPassEnabled("DEFERRED_PREPASS", false);
                 }
 
                 return _previewMaterial;

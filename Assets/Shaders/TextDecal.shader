@@ -120,12 +120,7 @@
             #pragma fragment frag_deferred_prepass
             #pragma target 3.0
 
-            #pragma multi_compile_deferred nolightmap nodirlightmap nodynlightmap
-            #pragma skip_variants SHADOWS_DEPTH SHADOWS_CUBE SHADOWS_SHADOWMASK LIGHTMAP_SHADOW_MIXING POINT_COOKIE
             #pragma multi_compile_local __ DECAL_PREVIEW
-            // #pragma multi_compile_local __ DECAL_BASE_NORMAL DECAL_BUMPMAP
-            #pragma multi_compile_local __ DECAL_SPECMAP
-            // #pragma multi_compile_local __ DECAL_EMISSIVE
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
   
             #include "UnityCG.cginc"
@@ -149,13 +144,18 @@
             Blend 2 SrcAlpha OneMinusSrcAlpha, Zero One
             Blend 3 SrcAlpha OneMinusSrcAlpha, Zero One
 
+            Stencil {
+                Ref 8
+                Comp Always
+                Pass Replace
+            } 
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag_deferred 
             #pragma target 3.0
 
-            #pragma multi_compile_deferred nolightmap nodirlightmap nodynlightmap
-            #pragma skip_variants SHADOWS_DEPTH SHADOWS_CUBE SHADOWS_SHADOWMASK LIGHTMAP_SHADOW_MIXING POINT_COOKIE
+            #pragma multi_compile __ UNITY_HDR_ON
             #pragma multi_compile_local __ DECAL_PREVIEW
             #pragma multi_compile_local __ DECAL_BASE_NORMAL DECAL_BUMPMAP
             #pragma multi_compile_local __ DECAL_SPECMAP

@@ -228,7 +228,12 @@ void frag_deferred (v2f IN,
     o.Normal = WorldNormal;
     #endif
 
+    #ifdef DECAL_PREVIEW
+        o.Alpha = 1;
+    #endif
+
     KSPLightingStandardSpecular_Deferred(o, outGBuffer0, outGBuffer1, outGBuffer2, outEmission);
+
     outGBuffer0.a = o.Alpha;
     outGBuffer1 *= o.Alpha;
     outGBuffer2.a = o.Alpha;

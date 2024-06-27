@@ -61,7 +61,7 @@ inline half4 KSPLightingStandardSpecular_Deferred (SurfaceOutputStandardSpecular
     outEmission = half4(s.Emission, s.Alpha);
 
     #ifndef UNITY_HDR_ON
-    outEmission.rgb = exp2(-outEmission.rgb);
+    outEmission.rgb = saturate(exp2(-outEmission.rgb));
     #endif
 
     return outEmission;

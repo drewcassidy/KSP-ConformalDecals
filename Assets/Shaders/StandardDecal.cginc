@@ -18,7 +18,7 @@ void surf(DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o) {
 
     #ifdef DECAL_SPECMAP
         float4 specular = tex2D(_SpecMap, IN.uv_specmap);
-        o.Specular = specular
+        o.Specular = specular;
     #endif
 
     o.Smoothness = _Shininess;
