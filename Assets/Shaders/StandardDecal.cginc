@@ -1,3 +1,4 @@
+#include "DecalsCommon.cginc"
 #include "SDF.cginc"
 
 void surf(DecalSurfaceInput IN, inout SurfaceOutput o) {

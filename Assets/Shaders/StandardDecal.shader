@@ -66,10 +66,6 @@
             #pragma multi_compile_local __ DECAL_EMISSIVE
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
 
-            #include "UnityCG.cginc"
-            #include "DecalsCommon.cginc"
-            #include "DecalsSurface.cginc"
-            #include "SDF.cginc"
             #include "StandardDecal.cginc"
  
             ENDCG
@@ -96,10 +92,6 @@
             #pragma multi_compile_local __ DECAL_EMISSIVE
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
   
-            #include "UnityCG.cginc"
-            #include "DecalsCommon.cginc"
-            #include "DecalsSurface.cginc"
-            #include "SDF.cginc"
             #include "StandardDecal.cginc"
 
             ENDCG
@@ -123,7 +115,6 @@
             #pragma multi_compile_local __ DECAL_BASE_NORMAL
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
   
-            #include "DecalsSurface.cginc"
             #include "StandardDecal.cginc"
 
             ENDCG
@@ -159,7 +150,6 @@
             #pragma multi_compile_local __ DECAL_EMISSIVE
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
 
-            #include "DecalsSurface.cginc"
             #include "StandardDecal.cginc"
 
             ENDCG
