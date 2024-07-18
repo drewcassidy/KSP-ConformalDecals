@@ -54,20 +54,8 @@ fixed _Shininess;
 // KSP EFFECTS
 // opacity and color
 float _Opacity;
-float4 _Color;
 float _RimFalloff;
 float4 _RimColor;
-
-// fog
-float4 _LocalCameraPos;
-float4 _LocalCameraDir;
-float4 _UnderwaterFogColor;
-float _UnderwaterMinAlphaFogDistance;
-float _UnderwaterMaxAlbedoFog;
-float _UnderwaterMaxAlphaFog;
-float _UnderwaterAlbedoDistanceScalar;
-float _UnderwaterAlphaDistanceScalar;
-float _UnderwaterFogFactor;
 
 // SURFACE INPUT STRUCT
 struct DecalSurfaceInput

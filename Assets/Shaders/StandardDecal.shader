@@ -81,7 +81,7 @@
             Tags { "LightMode" = "ForwardAdd" }
             ZWrite Off
             ZTest LEqual  
-            Blend One One
+            Blend SrcAlpha One
             Offset -1, -1
 
             CGPROGRAM
@@ -109,7 +109,7 @@
         {
             Name "DEFERRED_PREPASS"
             Tags { "LightMode" = "Deferred" }
-            ZWrite [_ZWrite] 
+            ZWrite Off
             ZTest LEqual  
             Offset -1, -1
             Blend 1 Zero OneMinusSrcColor, Zero OneMinusSrcAlpha 
@@ -120,12 +120,10 @@
             #pragma target 3.0
 
             #pragma multi_compile_local __ DECAL_PREVIEW
+            #pragma multi_compile_local __ DECAL_BASE_NORMAL
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
   
-            #include "UnityCG.cginc"
-            #include "DecalsCommon.cginc"
             #include "DecalsSurface.cginc"
-            #include "SDF.cginc"
             #include "StandardDecal.cginc"
 
             ENDCG
@@ -135,23 +133,23 @@
         {
             Name "DEFERRED"
             Tags { "LightMode" = "Deferred" }
-            ZWrite On
-            ZTest LEqual  
+            ZWrite Off
+            ZTest LEqual
             Offset -1, -1
-            Blend 0 SrcAlpha OneMinusSrcAlpha, One One
+            Blend 0 SrcAlpha OneMinusSrcAlpha, Zero One
             Blend 1 One One
             Blend 2 SrcAlpha OneMinusSrcAlpha, Zero One
             Blend 3 SrcAlpha OneMinusSrcAlpha, Zero One
 
             Stencil {
-                Ref 8
+                Ref 1
                 Comp Always
                 Pass Replace
-            }  
+            }
 
             CGPROGRAM
             #pragma vertex vert
-            #pragma fragment frag_deferred 
+            #pragma fragment frag_deferred
             #pragma target 3.0
 
             #pragma multi_compile __ UNITY_HDR_ON
@@ -160,16 +158,11 @@
             #pragma multi_compile_local __ DECAL_SPECMAP
             #pragma multi_compile_local __ DECAL_EMISSIVE
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
-  
-            #include "UnityCG.cginc"
-            #include "DecalsCommon.cginc"
+
             #include "DecalsSurface.cginc"
-            #include "SDF.cginc"
             #include "StandardDecal.cginc"
 
             ENDCG
-        } 
-
-        UsePass "Legacy Shaders/VertexLit/SHADOWCASTER"
+        }
     }
 }    

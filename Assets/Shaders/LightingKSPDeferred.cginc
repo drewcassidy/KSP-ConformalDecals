@@ -1,6 +1,8 @@
 #ifndef LIGHTING_KSP_INCLUDED
 #define LIGHTING_KSP_INCLUDED
 
+#include "UnityPBSLighting.cginc"
+
 
 #define blinnPhongShininessPower 0.215
 
@@ -14,28 +16,24 @@
 // 3) Finally I noticed that some parts still looked very shiny like the AV-R8 winglet while in stock they looked rough thanks a low
 // specularColor but high shininess and specularMap, so I multiplied the smoothness by the sqrt of the specularColor and that caps
 // the smoothness when specularColor is low
-float4 GetStandardSpecularPropertiesFromLegacy(float legacyShininess, float specularMap)
+void GetStandardSpecularPropertiesFromLegacy(float legacyShininess, float specularMap, out float3 specular, out float smoothness)
 {
     float3 legacySpecularColor = saturate(_SpecColor);
 
-    float smoothness = pow(legacyShininess, blinnPhongShininessPower) * specularMap;
+    smoothness = pow(legacyShininess, blinnPhongShininessPower) * specularMap;
     smoothness *= sqrt(length(legacySpecularColor));
 
-    float3 specular = legacySpecularColor * UNITY_INV_PI;
-    return float4(specular, smoothness);
+    specular = legacySpecularColor * UNITY_INV_PI;
 }
 
 float4 _Color;
 
 fixed4 LightingBlinnPhongSmooth(SurfaceOutput s, half3 viewDir, UnityGI gi)
 {
-    fixed4 c;
-    c = UnityBlinnPhongLight(s, viewDir, gi.light);
-
-    #ifdef UNITY_LIGHT_FUNCTION_APPLY_INDIRECT
-    c.rgb += s.Albedo * gi.indirect.diffuse;
-    #endif
-
+    fixed4 c = LightingBlinnPhong(s, viewDir, gi);
+    // #ifdef UNITY_PASS_FORWARDADD
+    // c.rgb *= c.a;
+    // #endif
     return c;
 }
 
@@ -43,17 +41,15 @@ half4 LightingBlinnPhongSmooth_Deferred(SurfaceOutput s, half3 viewDir, UnityGI 
                                                out half4 outDiffuseOcclusion, out half4 outSpecSmoothness,
                                                out half4 outNormal)
 {
-    outDiffuseOcclusion = half4(s.Albedo, 1.0);
-    outSpecSmoothness = GetStandardSpecularPropertiesFromLegacy(s.Specular, s.Gloss);
-    outNormal = half4(s.Normal, 1.0);
+    SurfaceOutputStandardSpecular ss;
+    ss.Albedo = s.Albedo;
+    ss.Normal = s.Normal;
+    ss.Emission = s.Emission;
+    ss.Occlusion = 1;
+    ss.Alpha = saturate(s.Alpha);
+    GetStandardSpecularPropertiesFromLegacy(s.Specular, s.Gloss, ss.Specular, ss.Smoothness);
 
-    half4 emission = half4(s.Emission, 1);
-
-    #ifdef UNITY_LIGHT_FUNCTION_APPLY_INDIRECT
-    emission.rgb += s.Albedo * gi.indirect.diffuse;
-    #endif
-
-    return emission;
+    return LightingStandardSpecular_Deferred(ss, viewDir, gi, outDiffuseOcclusion, outSpecSmoothness, outNormal);
 }
 
 

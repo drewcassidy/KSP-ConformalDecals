@@ -1,9 +1,11 @@
-void surf(DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o) {
+#include "SDF.cginc"
+
+void surf(DecalSurfaceInput IN, inout SurfaceOutput o) {
     float4 color = tex2D(_Decal, IN.uv_decal);
     o.Specular = 0.4;
+    o.Gloss = _Shininess;
     o.Albedo = UnderwaterFog(IN.worldPosition, color).rgb;
     o.Alpha =  _DecalOpacity;
-    o.Occlusion = 1;
 
     #ifdef DECAL_BASE_NORMAL
         float3 normal = IN.normal;
@@ -21,7 +23,6 @@ void surf(DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o) {
         o.Specular = specular;
     #endif
 
-    o.Smoothness = _Shininess;
 
     half rim = 1.0 - saturate(dot(normalize(IN.viewDir), o.Normal));
     o.Emission = (_RimColor.rgb * pow(rim, _RimFalloff)) * _RimColor.a;
@@ -37,5 +38,5 @@ void surf(DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o) {
     #else
         o.Alpha *= SDFAA(dist);
         o.Alpha *= color.a;
-    #endif 
+    #endif
 }
