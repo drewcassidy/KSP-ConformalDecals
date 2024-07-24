@@ -13,7 +13,7 @@
         _BumpMap("Bump Map", 2D) = "bump" {}
         _EdgeWearStrength("Edge Wear Strength", Range(0,500)) = 100
         _EdgeWearOffset("Edge Wear Offset", Range(0,1)) = 0.1
-    
+
         [Header(Specularity)]
         [Toggle(DECAL_SPECMAP)] _Decal_SpecMap ("Has SpecMap", int) = 0
         _SpecMap ("Specular Map)", 2D) = "black" {}
@@ -28,7 +28,7 @@
         _Cutoff ("Alpha cutoff", Range(0,1)) = 0.5
         _DecalOpacity("Opacity", Range(0,1) ) = 1
         _Background("Background Color", Color) = (0.9,0.9,0.9,0.7)
-        
+
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", int) = 2
         [Toggle] _ZWrite ("ZWrite", Float) = 1.0
 
@@ -43,23 +43,28 @@
     }
     SubShader
     {
-        Tags { "Queue" = "Geometry+100" "IgnoreProjector" = "true" "DisableBatching" = "true"}
+        Tags
+        {
+            "Queue" = "Geometry+100" "IgnoreProjector" = "true" "DisableBatching" = "true"
+        }
         Cull [_Cull]
-        
+
         Pass
         {
             Name "FORWARD"
-            Tags { "LightMode" = "ForwardBase" }
-            ZWrite [_ZWrite] 
-            ZTest LEqual  
+            Tags
+            {
+                "LightMode" = "ForwardBase"
+            }
+            ZWrite [_ZWrite]
+            ZTest LEqual
             Blend SrcAlpha OneMinusSrcAlpha
 
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag_forward
 
-            #pragma multi_compile_fwdbase nolightmap nodirlightmap nodynlightmap
-            #pragma skip_variants SHADOWS_DEPTH SHADOWS_CUBE SHADOWS_SHADOWMASK LIGHTMAP_SHADOW_MIXING POINT_COOKIE
+            #pragma multi_compile DIRECTIONAL
             #pragma multi_compile_local __ DECAL_PREVIEW
             #pragma multi_compile_local __ DECAL_BASE_NORMAL DECAL_BUMPMAP
             #pragma multi_compile_local __ DECAL_SPECMAP
@@ -67,16 +72,18 @@
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
 
             #include "StandardDecal.cginc"
- 
             ENDCG
-        } 
-        
+        }
+
         Pass
         {
             Name "FORWARD"
-            Tags { "LightMode" = "ForwardAdd" }
+            Tags
+            {
+                "LightMode" = "ForwardAdd"
+            }
             ZWrite Off
-            ZTest LEqual  
+            ZTest LEqual
             Blend SrcAlpha One
             Offset -1, -1
 
@@ -84,27 +91,28 @@
             #pragma vertex vert
             #pragma fragment frag_forward
 
-            #pragma multi_compile_fwdadd nolightmap nodirlightmap nodynlightmap
-            #pragma skip_variants SHADOWS_DEPTH SHADOWS_CUBE SHADOWS_SHADOWMASK LIGHTMAP_SHADOW_MIXING POINT_COOKIE
+            #pragma multi_compile DIRECTIONAL SPOT POINT
             #pragma multi_compile_local __ DECAL_PREVIEW
             #pragma multi_compile_local __ DECAL_BASE_NORMAL DECAL_BUMPMAP
             #pragma multi_compile_local __ DECAL_SPECMAP
             #pragma multi_compile_local __ DECAL_EMISSIVE
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
-  
-            #include "StandardDecal.cginc"
 
+            #include "StandardDecal.cginc"
             ENDCG
-        } 
+        }
 
         Pass
         {
             Name "DEFERRED_PREPASS"
-            Tags { "LightMode" = "Deferred" }
+            Tags
+            {
+                "LightMode" = "Deferred"
+            }
             ZWrite Off
-            ZTest LEqual  
+            ZTest LEqual
             Offset -1, -1
-            Blend 1 Zero OneMinusSrcColor, Zero OneMinusSrcAlpha 
+            Blend 1 Zero OneMinusSrcColor, Zero OneMinusSrcAlpha
 
             CGPROGRAM
             #pragma vertex vert
@@ -114,16 +122,20 @@
             #pragma multi_compile_local __ DECAL_PREVIEW
             #pragma multi_compile_local __ DECAL_BASE_NORMAL
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
-  
-            #include "StandardDecal.cginc"
 
+            #define DECAL_PREPASS
+
+            #include "StandardDecal.cginc"
             ENDCG
-        } 
+        }
 
         Pass
         {
             Name "DEFERRED"
-            Tags { "LightMode" = "Deferred" }
+            Tags
+            {
+                "LightMode" = "Deferred"
+            }
             ZWrite Off
             ZTest LEqual
             Offset -1, -1
@@ -132,7 +144,8 @@
             Blend 2 SrcAlpha OneMinusSrcAlpha, Zero One
             Blend 3 SrcAlpha OneMinusSrcAlpha, Zero One
 
-            Stencil {
+            Stencil
+            {
                 Ref 1
                 Comp Always
                 Pass Replace
@@ -151,8 +164,7 @@
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
 
             #include "StandardDecal.cginc"
-
             ENDCG
         }
     }
-}    
+}
