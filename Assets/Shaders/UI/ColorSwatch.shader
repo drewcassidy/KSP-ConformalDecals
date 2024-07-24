@@ -1,4 +1,4 @@
-Shader "ConformalDecals/UI/HSV Square"
+Shader "ConformalDecals/UI/Color Swatch"
 {
     Properties
     {
@@ -8,7 +8,7 @@ Shader "ConformalDecals/UI/HSV Square"
         _OutlineGradient("Outline Gradient Step", Range (0, 1)) = 0.6
         _OutlineOpacity("Outline Opacity", Range (0, 0.5)) = 0.1
         _OutlineWidth("Outline Width", Float) = 3
-        
+
         _StencilComp ("Stencil Comparison", Float) = 8
         _Stencil ("Stencil ID", Float) = 0
         _StencilOp ("Stencil Operation", Float) = 0
@@ -37,14 +37,14 @@ Shader "ConformalDecals/UI/HSV Square"
             ReadMask [_StencilReadMask]
             WriteMask [_StencilWriteMask]
         }
-        
+
         Cull Off
         Lighting Off
         ZWrite Off
         ZTest [unity_GUIZTestMode]
         Blend SrcAlpha OneMinusSrcAlpha
         ColorMask [_ColorMask]
-        
+
         Pass
         {
             CGPROGRAM
@@ -52,14 +52,15 @@ Shader "ConformalDecals/UI/HSV Square"
             #pragma fragment frag
 
             #pragma require integers
-
+            
             #include "UnityCG.cginc"
             #include "UnityUI.cginc"
             #include "HSL.cginc"
-            #include "SDF.cginc"
+            #include "../SDF.cginc"
             
             #pragma multi_compile_local _ UNITY_UI_CLIP_RECT
             #pragma multi_compile_local _ UNITY_UI_ALPHACLIP
+            #pragma multi_compile_local HUE RED GREEN BLUE
             
             float4 _ClipRect;
             float _Radius;
@@ -93,12 +94,9 @@ Shader "ConformalDecals/UI/HSV Square"
             
             fixed4 frag (v2f i) : SV_Target
             {
-                // sample the texture
-                fixed4 color = 1;
+                fixed4 color = _Color;
                 
                 color.a = saturate(0.5 - sdRoundedUVBox(i.uv, _Radius));
-
-                color.rgb = HSV2RGB(float3(_Color.x, i.uv.x, i.uv.y));
                 
                 float rrect = sdRoundedUVBox(i.uv, _Radius);
                 float gradient = smoothstep(_OutlineGradient, 1 - _OutlineGradient, i.uv.y);
