@@ -1,11 +1,12 @@
-﻿Shader "ConformalDecals/Decal/Standard"
+﻿Shader "{% block shader_name %}ConformalDecals/Decal/Standard{% endblock %}"
 {
     Properties
     {
+        // Shader-specific properties
+        //{% block properties %}
         [Header(Decal)]
         _Decal("Decal Texture", 2D) = "gray" {}
         [Toggle(DECAL_SDF_ALPHA)] _Decal_SDF_Alpha ("SDF in Alpha", int) = 0
-
 
         [Header(Normal)]
         [Toggle(DECAL_BASE_NORMAL)] _BaseNormal ("Use Base Normal", int) = 0
@@ -24,7 +25,9 @@
         [Toggle(DECAL_EMISSIVE)] _Decal_Emissive ("Has Emissive", int) = 0
         _Emissive("_Emissive", 2D) = "black" {}
         _EmissiveColor("_EmissiveColor", Color) = (0,0,0,1)
+        //{% endblock %}
 
+        // Common decal properties
         _Cutoff ("Alpha cutoff", Range(0,1)) = 0.5
         _DecalOpacity("Opacity", Range(0,1) ) = 1
         _Background("Background Color", Color) = (0.9,0.9,0.9,0.7)
@@ -67,11 +70,16 @@
             #pragma multi_compile DIRECTIONAL
             #pragma multi_compile_local __ DECAL_PREVIEW
             #pragma multi_compile_local __ DECAL_BASE_NORMAL DECAL_BUMPMAP
+            //{% block pragmas %}
             #pragma multi_compile_local __ DECAL_SPECMAP
             #pragma multi_compile_local __ DECAL_EMISSIVE
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
+            //{% endblock %}
 
+            //{% block body %}
             #include "StandardDecal.cginc"
+            //{% endblock %}
+
             ENDCG
         }
 
@@ -94,11 +102,9 @@
             #pragma multi_compile DIRECTIONAL SPOT POINT
             #pragma multi_compile_local __ DECAL_PREVIEW
             #pragma multi_compile_local __ DECAL_BASE_NORMAL DECAL_BUMPMAP
-            #pragma multi_compile_local __ DECAL_SPECMAP
-            #pragma multi_compile_local __ DECAL_EMISSIVE
-            #pragma multi_compile_local __ DECAL_SDF_ALPHA
+            //{{ self.pragmas() }}
 
-            #include "StandardDecal.cginc"
+            //{{ self.body() }}
             ENDCG
         }
 
@@ -114,6 +120,13 @@
             Offset -1, -1
             Blend 1 Zero OneMinusSrcColor, Zero OneMinusSrcAlpha
 
+            Stencil
+            {
+                Ref 1
+                Comp Equal
+                Pass Keep
+            }
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag_deferred_prepass
@@ -121,11 +134,11 @@
 
             #pragma multi_compile_local __ DECAL_PREVIEW
             #pragma multi_compile_local __ DECAL_BASE_NORMAL
-            #pragma multi_compile_local __ DECAL_SDF_ALPHA
+            //{{ self.pragmas() }}
 
             #define DECAL_PREPASS
 
-            #include "StandardDecal.cginc"
+            //{{ self.body() }}
             ENDCG
         }
 
@@ -147,8 +160,8 @@
             Stencil
             {
                 Ref 1
-                Comp Always
-                Pass Replace
+                Comp Equal
+                Pass Keep
             }
 
             CGPROGRAM
@@ -159,11 +172,9 @@
             #pragma multi_compile __ UNITY_HDR_ON
             #pragma multi_compile_local __ DECAL_PREVIEW
             #pragma multi_compile_local __ DECAL_BASE_NORMAL DECAL_BUMPMAP
-            #pragma multi_compile_local __ DECAL_SPECMAP
-            #pragma multi_compile_local __ DECAL_EMISSIVE
-            #pragma multi_compile_local __ DECAL_SDF_ALPHA
+            //{{ self.pragmas() }}
 
-            #include "StandardDecal.cginc"
+            //{{ self.body() }}
             ENDCG
         }
     }
