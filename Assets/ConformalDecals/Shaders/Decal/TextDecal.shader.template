@@ -1,0 +1,39 @@
+{% extends "StandardDecal.shader.template" %}
+{% block shader_name %}ConformalDecals/Decal/Text{% endblock %}
+
+{% block properties %}
+        [Header(Decal)]
+        [Toggle(DECAL_FILL)] _Fill ("Fill", int) = 0
+        _Decal("Decal Texture", 2D) = "gray" {}
+        _DecalColor("Decal Color", Color) = (1,1,1,1)
+
+        _Weight("Text Weight", Range(0,1)) = 0
+
+        [Header(Outline)]
+        [Toggle(DECAL_OUTLINE)] _Outline ("Outline", int) = 0
+        _OutlineColor("Outline Color", Color) = (0,0,0,1)
+        _OutlineWidth("Outline Width", Range(0,1)) = 0.1
+
+        [Header(Normal)]
+        [Toggle(DECAL_BASE_NORMAL)] _BaseNormal ("Use Base Normal", int) = 0
+        _BumpMap("Bump Map", 2D) = "bump" {}
+        _EdgeWearStrength("Edge Wear Strength", Range(0,500)) = 100
+        _EdgeWearOffset("Edge Wear Offset", Range(0,1)) = 0.1
+
+        [Header(Specularity)]
+        [Toggle(DECAL_SPECMAP)] _Decal_SpecMap ("Has SpecMap", int) = 0
+        _SpecMap ("Specular Map)", 2D) = "black" {}
+        _SpecColor ("_SpecColor", Color) = (0.25, 0.25, 0.25, 1)
+        _Shininess ("Shininess", Range (0.03, 10)) = 0.3
+{% endblock %}
+
+{% block pragmas %}
+            #pragma multi_compile_local __ DECAL_SPECMAP
+            #pragma multi_compile_local __ DECAL_OUTLINE
+            #pragma multi_compile_local __ DECAL_FILL
+            #pragma skip_variants DECAL_BUMPMAP
+{% endblock %}
+
+{% block body %}
+            #include "TextDecal.cginc"
+{% endblock %}

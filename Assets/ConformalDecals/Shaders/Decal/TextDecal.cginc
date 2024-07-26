@@ -1,14 +1,18 @@
+#include "../DecalsCommon.cginc"
+#include "../SDF.cginc"
+
 float4 _DecalColor;
 
 float4 _OutlineColor;
 float _OutlineWidth;
 
-void surf(DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o) {
+void surf(DecalSurfaceInput IN, inout SurfaceOutput o) {
     float4 color = _DecalColor;
-    float dist = _Cutoff - tex2D(_Decal, IN.uv_decal).r; // text distance
     o.Specular = 0.4;
-    o.Occlusion = 1;
-    
+    o.Gloss = _Shininess;
+
+    float dist = _Cutoff - tex2D(_Decal, IN.uv_decal).r; // text distance
+
     #ifdef DECAL_OUTLINE
         // Outline
         float outlineOffset = _OutlineWidth * 0.25;
@@ -30,8 +34,8 @@ void surf(DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o) {
 
     dist = max(dist, BoundsDist(IN.uv, IN.vertex_normal, _DecalNormal));
     float ddist = SDFdDist(dist); // distance gradient magnitude
-    o.Alpha = _DecalOpacity * SDFAA(dist, ddist);
-    o.Albedo = UnderwaterFog(IN.worldPosition, color).rgb;
+    o.Albedo = color.rgb;
+    o.Alpha *= SDFAA(dist, ddist);
 
     #ifdef DECAL_BASE_NORMAL
         float3 normal = IN.normal;
@@ -44,9 +48,4 @@ void surf(DecalSurfaceInput IN, inout SurfaceOutputStandardSpecular o) {
         float4 specular = tex2D(_SpecMap, IN.uv_specmap);
         o.Specular = specular;
     #endif
-
-    o.Smoothness = _Shininess;
-
-    half rim = 1.0 - saturate(dot(normalize(IN.viewDir), o.Normal));
-    o.Emission = (_RimColor.rgb * pow(rim, _RimFalloff)) * _RimColor.a;
 }
