@@ -3,15 +3,13 @@
 
 void surf(DecalSurfaceInput IN, inout SurfaceOutput o) {
     float4 color = tex2D(_Decal, IN.uv_decal);
+    o.Albedo = color.rgb;
     o.Specular = 0.4;
     o.Gloss = _Shininess;
-    o.Albedo = UnderwaterFog(IN.worldPosition, color).rgb;
-    o.Alpha =  _DecalOpacity;
 
     #ifdef DECAL_BASE_NORMAL
         float3 normal = IN.normal;
         float wearFactor = 1 - normal.z;
-        float wearFactorAlpha = saturate(_EdgeWearStrength * wearFactor);
         o.Alpha *= saturate(1 + _EdgeWearOffset - saturate(_EdgeWearStrength * wearFactor));
     #endif
 
@@ -23,10 +21,6 @@ void surf(DecalSurfaceInput IN, inout SurfaceOutput o) {
         float4 specular = tex2D(_SpecMap, IN.uv_specmap);
         o.Specular = specular;
     #endif
-
-
-    half rim = 1.0 - saturate(dot(normalize(IN.viewDir), o.Normal));
-    o.Emission = (_RimColor.rgb * pow(rim, _RimFalloff)) * _RimColor.a;
 
     #ifdef DECAL_EMISSIVE
         o.Emission += tex2D(_Emissive, IN.uv_emissive).rgb * _Emissive_Color.rgb * _Emissive_Color.a;

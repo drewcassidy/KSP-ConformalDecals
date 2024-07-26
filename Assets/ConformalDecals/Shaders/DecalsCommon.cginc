@@ -1,6 +1,4 @@
 #ifndef DECALS_COMMON_INCLUDED
-// Upgrade NOTE: excluded shader from DX11; has structs without semantics (struct v2f members screenUV)
-#pragma exclude_renderers d3d11
 #define DECALS_COMMON_INCLUDED
 
 #include "AutoLight.cginc"
@@ -117,10 +115,6 @@ struct v2f
     #ifdef UNITY_PASS_FORWARDADD
         UNITY_LIGHTING_COORDS(5,6)
     #endif //UNITY_PASS_FORWARDADD
-
-    #ifdef UNITY_PASS_DEFERRED
-        float3 screenUV : TEXCOORD5;
-    #endif
 };
 
 
@@ -138,6 +132,8 @@ inline float CalcMipLevel(float2 texture_coord) {
     return 0.5 * log2(delta_max_sqr);
 }
 
+// Decal bounds distance function
+// takes in a world position, world normal, and projector normal and outputs a unitless signed distance from the
 inline float BoundsDist(float3 p, float3 normal, float3 projNormal) {
     float3 q = abs(p - 0.5) - 0.5; // 1x1 square/cube centered at (0.5,0.5)
     //float dist = length(max(q,0)) + min(max(q.x,max(q.y,q.z)),0.0); // true SDF
@@ -212,14 +208,6 @@ v2f vert(appdata_decal v)
 
     // pass shadow and, possibly, light cookie coordinates to pixel shader
     UNITY_TRANSFER_LIGHTING(o, 0.0);
-
-    #ifdef UNITY_PASS_DEFERRED
-        o.screenUV = o.pos.xyw;
-
-        // Correct flip when rendering with a flipped projection matrix.
-        // (I've observed this differing between the Unity scene & game views)
-        o.screenUV.y *= _ProjectionParams.x;
-    #endif
     return o;
 }
 
@@ -279,13 +267,20 @@ SurfaceOutput frag_common(v2f IN, out float3 viewDir, out UnityGI gi) {
     // initialize surface output
     o.Albedo = 0.0;
     o.Emission = 0.0;
-    o.Specular = 0.0;
-    o.Alpha = 0.0;
+    o.Specular = 0.4;
+    o.Alpha = _DecalOpacity;
     o.Gloss = 0.0;
     o.Normal = fixed3(0,0,1);
 
     // call surface function
     surf(i, o);
+
+    // apply KSP fog. In the deferred pass this is a no-op
+    o.Albedo = UnderwaterFog(i.worldPosition, o.Albedo).rgb;
+
+    // apply KSP rim lighting
+    half rim = 1.0 - saturate(dot(normalize(i.viewDir), o.Normal));
+    o.Emission += o.Emission = (_RimColor.rgb * pow(rim, _RimFalloff)) * _RimColor.a;
 
     // compute world normal
     float3 worldN;
