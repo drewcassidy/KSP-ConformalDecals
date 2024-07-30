@@ -63,12 +63,12 @@ Shader "ConformalDecals/Decal Back"
             // 45° rotation
             uv_MainTex.x = IN.uv_MainTex.x - IN.uv_MainTex.y;
             uv_MainTex.y = IN.uv_MainTex.x + IN.uv_MainTex.y;
-            
+
             // stagger every other row
+            uv_MainTex.y *= 2;
             int row = floor(uv_MainTex.y);
             uv_MainTex.x += row * _RowOffset;
-            uv_MainTex.y *= 2;
-            
+
             float4 color = _Color * tex2D(_MainTex,(uv_MainTex));
             float3 normal = UnpackNormal(tex2D(_BumpMap, uv_BumpMap));
 

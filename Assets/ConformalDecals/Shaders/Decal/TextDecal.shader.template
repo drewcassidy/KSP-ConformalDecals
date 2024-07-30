@@ -1,5 +1,5 @@
-{% extends "StandardDecal.shader.template" %}
-{% block shader_name %}ConformalDecals/Decal/Text{% endblock %}
+{% extends "DecalBase.shader.template" %}
+{% block shader_name %}Text{% endblock %}
 
 {% block properties %}
         [Header(Decal)]
@@ -27,13 +27,15 @@
         _Shininess ("Shininess", Range (0.03, 10)) = 0.3
 {% endblock %}
 
-{% block pragmas %}
+{% block body %}
+            #pragma multi_compile_local __ DECAL_BASE_NORMAL
             #pragma multi_compile_local __ DECAL_SPECMAP
             #pragma multi_compile_local __ DECAL_OUTLINE
             #pragma multi_compile_local __ DECAL_FILL
-            #pragma skip_variants DECAL_BUMPMAP
+
+            #include "TextDecal.cginc"
 {% endblock %}
 
-{% block body %}
-            #include "TextDecal.cginc"
+{% block pragmas_deferred_prepass %}
+            #pragma skip_variants DECAL_SPECMAP
 {% endblock %}

@@ -1,4 +1,4 @@
-#include "../DecalsCommon.cginc"
+#include "DecalsCommon.cginc"
 #include "../SDF.cginc"
 
 float4 _DecalColor;
