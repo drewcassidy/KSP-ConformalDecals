@@ -3,7 +3,7 @@
 
 #include "AutoLight.cginc"
 #include "Lighting.cginc"
-#include "../LightingKSPDeferred.cginc"
+#include "../LightingKSP.cginc"
 
 #define CLIP_MARGIN 0.05
 #define EDGE_MARGIN 0.01
@@ -115,6 +115,10 @@ struct v2f
     #ifdef UNITY_PASS_FORWARDADD
         UNITY_LIGHTING_COORDS(5,6)
     #endif //UNITY_PASS_FORWARDADD
+
+    #if UNITY_SHOULD_SAMPLE_SH
+        half3 sh : TEXCOORD7; // SH
+    #endif
 };
 
 
@@ -212,14 +216,14 @@ v2f vert(appdata_decal v)
 }
 
 
-SurfaceOutput frag_common(v2f IN, out float3 viewDir, out UnityGI gi) {
+SurfaceOutput frag_common(v2f IN, out float3 worldPos, out float3 worldViewDir, out float3 viewDir) {
     SurfaceOutput o;
 
     // setup world-space TBN vectors
     UNITY_EXTRACT_TBN(IN);
 
-    float3 worldPos = float3(IN.tSpace0.w, IN.tSpace1.w, IN.tSpace2.w);
-    float3 worldViewDir = normalize(UnityWorldSpaceViewDir(worldPos));
+    worldPos = float3(IN.tSpace0.w, IN.tSpace1.w, IN.tSpace2.w);
+    worldViewDir = normalize(UnityWorldSpaceViewDir(worldPos));
     viewDir = _unity_tbn_0 * worldViewDir.x + _unity_tbn_1 * worldViewDir.y  + _unity_tbn_2 * worldViewDir.z;
 
     #ifdef DECAL_PREVIEW
@@ -290,31 +294,36 @@ SurfaceOutput frag_common(v2f IN, out float3 viewDir, out UnityGI gi) {
     worldN = normalize(worldN);
     o.Normal = worldN;
 
+    return o;
+}
+
+fixed4 frag_forward(v2f IN) : SV_Target
+{
+    fixed4 c = 0;
+
+    float3 worldPos;
+    float3 worldViewDir;
+    float3 viewDir;
+    SurfaceOutput o = frag_common(IN, worldPos, worldViewDir, viewDir);
+
     // compute lighting & shadowing factor
-    #if UNITY_PASS_DEFERRED
-    fixed atten = 0;
-    #else
     UNITY_LIGHT_ATTENUATION(atten, IN, worldPos)
-    #endif
 
-    // setup GI
-    UNITY_INITIALIZE_OUTPUT(UnityGI, gi);
-    gi.indirect.diffuse = 0;
-    gi.indirect.specular = 0;
-    gi.light.color = 0;
-    gi.light.dir = half3(0,1,0);
-
-    // setup light information in forward modes
-    #ifndef UNITY_PASS_DEFERRED
     #ifndef USING_DIRECTIONAL_LIGHT
     fixed3 lightDir = normalize(UnityWorldSpaceLightDir(worldPos));
     #else
     fixed3 lightDir = _WorldSpaceLightPos0.xyz;
     #endif
+
+    // Setup lighting environment
+    UnityGI gi;
+    UNITY_INITIALIZE_OUTPUT(UnityGI, gi);
+    gi.indirect.diffuse = 0;
+    gi.indirect.specular = 0;
     gi.light.color = _LightColor0.rgb;
     gi.light.dir = lightDir;
-    #endif
 
+    #ifdef UNITY_PASS_FORWARDBASE
     // Call GI (lightmaps/SH/reflections) lighting function
     UnityGIInput giInput;
     UNITY_INITIALIZE_OUTPUT(UnityGIInput, giInput);
@@ -322,32 +331,24 @@ SurfaceOutput frag_common(v2f IN, out float3 viewDir, out UnityGI gi) {
     giInput.worldPos = worldPos;
     giInput.worldViewDir = worldViewDir;
     giInput.atten = atten;
-    giInput.ambient = 0.0;
 
-    LightingBlinnPhongSmooth_GI(o, giInput, gi);
+    #if UNITY_SHOULD_SAMPLE_SH && !UNITY_SAMPLE_FULL_SH_PER_PIXEL
+    giInput.ambient = IN.sh;
+    #else
+    giInput.ambient.rgb = 0.0;
+    #endif
 
-    #ifdef DECAL_PREVIEW
-        if (any(IN.uv_decal > 1) || any(IN.uv_decal < 0)) o.Alpha = 0;
+    LightingBlinnPhongKSP_GI(o, giInput, gi);
+    #endif
 
-        o.Albedo = lerp(_Background.rgb, o.Albedo, o.Alpha) * _Color.rgb;
-        o.Normal = lerp(float3(0,0,1), o.Normal, o.Alpha);
-        o.Specular = lerp(_Background.a, o.Specular, o.Alpha);
-        o.Emission = lerp(0, o.Emission, o.Alpha);
-        o.Alpha = _Opacity;
-    #endif //DECAL_PREVIEW
-
-    return o;
-}
-
-fixed4 frag_forward(v2f IN) : SV_Target
-{
-    fixed3 viewDir = 0;
-    UnityGI gi;
-
-    SurfaceOutput o = frag_common(IN, viewDir, gi);
+    #ifdef UNITY_PASS_FORWARDADD
+    gi.light.color *= atten;
+    #endif
 
     //call modified KSP lighting function
-    return LightingBlinnPhongSmooth(o, viewDir, gi);
+    c += LightingBlinnPhongKSP(o, viewDir, gi);
+    c.rgb += o.Emission;
+    return c;
 }
 
 void frag_deferred (v2f IN,
@@ -362,15 +363,41 @@ void frag_deferred (v2f IN,
         half4 outGBuffer2 = 0; // define dummy normal buffer when we're not writing to it
     #endif
 
+    float3 worldPos;
+    float3 worldViewDir;
     float3 viewDir;
-    UnityGI gi;
-    SurfaceOutput o = frag_common(IN, viewDir, gi);
+    SurfaceOutput o = frag_common(IN, worldPos, worldViewDir, viewDir);
 
-    #ifdef DECAL_PREVIEW
-        o.Alpha = 1;
+    // Setup lighting environment
+    UnityGI gi;
+    UNITY_INITIALIZE_OUTPUT(UnityGI, gi);
+    gi.indirect.diffuse = 0;
+    gi.indirect.specular = 0;
+    gi.light.color = 0;
+    gi.light.dir = half3(0,1,0);
+
+    UnityGIInput giInput;
+    UNITY_INITIALIZE_OUTPUT(UnityGIInput, giInput);
+    giInput.light = gi.light;
+    giInput.worldPos = worldPos;
+    giInput.worldViewDir = worldViewDir;
+    giInput.atten = 1;
+    giInput.lightmapUV = 0.0;
+
+    #if UNITY_SHOULD_SAMPLE_SH && !UNITY_SAMPLE_FULL_SH_PER_PIXEL
+    giInput.ambient = 0.0 * IN.sh;
+    #else
+    giInput.ambient.rgb = 0.0;
     #endif
 
-    outEmission = LightingBlinnPhongSmooth_Deferred(o, viewDir, gi, outGBuffer0, outGBuffer1, outGBuffer2);
+    giInput.probeHDR[0] = unity_SpecCube0_HDR;
+    giInput.probeHDR[1] = unity_SpecCube1_HDR;
+
+    LightingBlinnPhongKSP_GI(o, giInput, gi);
+
+    outEmission = LightingBlinnPhongKSP_Deferred(o, worldViewDir, gi, outGBuffer0, outGBuffer1, outGBuffer2);
+
+    // outGBuffer0 = outEmission;
 
     #ifndef UNITY_HDR_ON
     outEmission.rgb = exp2(-outEmission.rgb);
@@ -380,13 +407,14 @@ void frag_deferred (v2f IN,
     outGBuffer1 *= o.Alpha;
     outGBuffer2.a = o.Alpha;
     outEmission.a = o.Alpha;
+
 }
 
 void frag_deferred_prepass(v2f IN, out half4 outGBuffer1: SV_Target1) {
+    float3 worldPos;
+    float3 worldViewDir;
     float3 viewDir;
-    UnityGI gi;
-
-    SurfaceOutput o = frag_common(IN, viewDir, gi);
+    SurfaceOutput o = frag_common(IN, worldPos, worldViewDir, viewDir);
 
     outGBuffer1 = o.Alpha;
 }

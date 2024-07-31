@@ -28,8 +28,8 @@ Shader "ConformalDecals/Decal Back"
 
         CGPROGRAM
 
-        #include "LightingKSPDeferred.cginc"
-        #pragma surface surf BlinnPhongSmooth vertex:vert
+        #include "LightingKSP.cginc"
+        #pragma surface surf BlinnPhongKSP vertex:vert
         #pragma target 3.0
         
         sampler2D _MainTex;

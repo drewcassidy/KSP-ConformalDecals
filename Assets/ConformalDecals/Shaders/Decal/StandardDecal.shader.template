@@ -26,7 +26,7 @@
 {% endblock %}
 
 {% block body %}
-            #pragma multi_compile_local __ DECAL_BASE_NORMAL
+            #pragma multi_compile_local __ DECAL_BASE_NORMAL DECAL_BUMPMAP
             #pragma multi_compile_local __ DECAL_SPECMAP
             #pragma multi_compile_local __ DECAL_EMISSIVE
             #pragma multi_compile_local __ DECAL_SDF_ALPHA
