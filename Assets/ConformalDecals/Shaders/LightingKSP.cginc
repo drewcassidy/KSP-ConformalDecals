@@ -88,7 +88,7 @@ inline void LightingBlinnPhongKSP_GI(inout SurfaceOutput s, UnityGIInput gi_inpu
 
 // STANDARD UNITY LIGHTING FUNCTION FOR KSP
 
-inline float3 LightingStandardKSP(SurfaceOutputStandard s, float3 worldViewDir, UnityGI gi)
+inline float4 LightingStandardKSP(SurfaceOutputStandard s, float3 worldViewDir, UnityGI gi)
 {
     return LightingStandard(s, worldViewDir, gi); // no change
 }
@@ -109,7 +109,7 @@ inline void LightingStandardKSP_GI(inout SurfaceOutputStandard s, UnityGIInput g
 
 // STANDARD SPECULAR UNITY LIGHTING FUNCTION FOR KSP
 
-inline float3 LightingStandardSpecularKSP(SurfaceOutputStandardSpecular s, float3 worldViewDir, UnityGI gi)
+inline float4 LightingStandardSpecularKSP(SurfaceOutputStandardSpecular s, float3 worldViewDir, UnityGI gi)
 {
     return LightingStandardSpecular(s, worldViewDir, gi); // no change
 }
